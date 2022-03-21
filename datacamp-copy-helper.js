@@ -63,34 +63,92 @@ function getCurrentPage() {
   }
 }
 
-function getTextContent(elementSelector) {
-  return selectSingleElement(elementSelector).textContent;
+function getTextContent(elementSelector, root = document) {
+  return selectSingleElement(elementSelector, root)?.textContent?.trim();
 }
 
-function selectSingleElement(selector, iframe = null) {
-  const matches = selectElements(selector, iframe);
+function selectSingleElement(selector, root = document) {
+  const matches = selectElements(selector, root);
 
   if (matches.length > 1) {
-    alert(`Note to copy helper script developer:
-    More than 1 element matches selector ${selector}!`);
+    alert(noLeadingWhitespace`Note to copy helper script developer:
+      More than 1 element matches selector ${selector}!`);
   }
 
   return matches[0];
 }
 
-function selectElements(selector, iframe = null) {
-  const root = iframe ? iframe.contentWindow : document;
+function selectElements(selector, root = document) {
+  const queryRoot = root.nodeName === 'IFRAME' ? root.contentWindow : root;
 
-  const matches = Array.from(root.querySelectorAll(selector));
+  const matches = Array.from(queryRoot.querySelectorAll(selector));
   if (matches.length === 0) {
-    alert(`Note to copy helper script developer:
+    alert(noLeadingWhitespace`Note to copy helper script developer:
     No element matches selector ${selector}!`);
   }
 
   return matches;
 }
 
+// for use with template strings
+// copied from https://muffinresearch.co.uk/removing-leading-whitespace-in-es6-template-strings/
+function singleLine(strings, ...values) {
+  // Interweave the strings with the
+  // substitution vars first.
+  let output = '';
+  for (let i = 0; i < values.length; i++) {
+    output += strings[i] + values[i];
+  }
+  output += strings[values.length];
+
+  // Split on newlines.
+  let lines = output.split(/(?:\r\n|\n|\r)/);
+
+  // Rip out the leading whitespace.
+  return lines
+    .map(line => {
+      return line.replace(/^\s+/gm, '');
+    })
+    .join(' ')
+    .trim();
+}
+
+// for use with template strings
+// adapted from https://muffinresearch.co.uk/removing-leading-whitespace-in-es6-template-strings/
+function noLeadingWhitespace(strings, ...values) {
+  // Interweave the strings with the
+  // substitution vars first.
+  let output = '';
+  for (let i = 0; i < values.length; i++) {
+    output += strings[i] + values[i];
+  }
+  output += strings[values.length];
+
+  // Split on newlines.
+  let lines = output.split(/(?:\r\n|\n|\r)/);
+
+  // Rip out the leading whitespace (except empty lines in beginning and end)
+  return lines
+    .map(line => {
+      return line.replace(/^\s+/gm, '');
+    })
+    .join('\n')
+    .trim();
+}
+
 function overviewCrawler() {
+  let chapters = selectElements('.chapter');
+  chapters = chapters.map(c => ({
+    title: getTextContent('.chapter__title', c),
+    description: getTextContent('.chapter__description', c),
+  }));
+
+  chapters = chapters.map(c => `# ${c.title}\n${c.description}`);
+
+  console.warn('chapters', chapters);
+
+  chapters = chapters.join('\n\n\n\n\n\n');
+
   return `---
 title: 'Data Acquisition and Survey Methods (2022S) Exercise X: ${getTextContent(
     '.header-hero__title'
@@ -106,6 +164,7 @@ output:
 
 ${getTextContent('.course__description')}
 
+${chapters}
 `;
 }
 
