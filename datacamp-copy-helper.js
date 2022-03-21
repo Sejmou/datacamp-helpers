@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.1
-// @description  Copies content from DataCamp courses into your clipboard, making it easier to create reports for University assignments
+// @version      0.6
+// @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=datacamp.com
-// @grant        GM_setClipboard
+// @grant        GM.setClipboard
 // ==/UserScript==
 
 function run() {
@@ -23,25 +23,7 @@ function run() {
   }
 
   addCopyButton(pageCrawler, btnPos);
-}
-
-function addCopyButton(pageCrawlFn, pos = { top: '40px', right: '40px' }) {
-  const btn = document.createElement('button');
-
-  btn.style.position = 'fixed';
-  btn.style.top = pos.top;
-  btn.style.right = pos.right;
-  btn.style.zIndex = '999';
-
-  btn.innerText = 'copy to clipboard';
-
-  btn.id = 'copy-helper-btn';
-
-  btn.addEventListener('click', () => {
-    const clipboardContent = pageCrawlFn();
-    GM_setClipboard(clipboardContent);
-  });
-  document.body.appendChild(btn);
+  addSnackbarToDOM();
 }
 
 const pageCrawlers = new Map([
@@ -96,6 +78,12 @@ function selectElements(selector, root = document) {
   }
 
   return matches;
+}
+
+function addStyle(CSSText) {
+  const style = document.createElement('style');
+  style.appendChild(document.createTextNode(CSSText));
+  document.querySelector('head').appendChild(style);
 }
 
 // for use with template strings
@@ -225,12 +213,126 @@ function exerciseCrawler() {
                                               ${lines}
                                               \`\`\``;
 
-  return noLeadingWhitespace`## ${exerciseTitle}
+  const rMarkdown = noLeadingWhitespace`## ${exerciseTitle}
                              ${exerciseInstructions}
 
                              ${exercisePars}
 
                              ${linesRCodeBlock}`;
+
+  return rMarkdown;
+}
+
+function addCopyButton(pageCrawlFn, pos = { top: '40px', right: '40px' }) {
+  const btn = document.createElement('button');
+  const btnId = 'copy-helper-btn';
+
+  btn.id = btnId;
+  addStyle(`
+  #${btnId} {
+    position: fixed;
+    top: ${pos.top};
+    right: ${pos.right};
+    z-index: 999;
+    transition: 0.25s all;
+  }
+
+  #${btnId}:active {
+    transform: scale(0.92);
+    box-shadow: 3px 2px 22px 1px rgba(0, 0, 0, 0.24);
+  }
+  `);
+
+  btn.innerText = 'copy to clipboard';
+  btn.type = 'button';
+
+  const copyFn = () => {
+    const clipboardContent = pageCrawlFn();
+    GM.setClipboard(clipboardContent);
+    showSnackbar('Copied R markdown to clipboard!');
+  };
+
+  btn.addEventListener('click', copyFn);
+
+  document.addEventListener('keydown', event => {
+    if (event.ctrlKey && event.shiftKey && event.key === 'Insert') {
+      copyFn();
+    }
+  });
+
+  document.body.appendChild(btn);
+}
+
+// copied from https://www.w3schools.com/howto/howto_js_snackbar.asp
+function addSnackbarToDOM() {
+  const snackbarId = 'copy-helper-snackbar';
+
+  addStyle(`
+  #${snackbarId} {
+    display: none; /* Hidden by default. Visible on click */
+    min-width: 250px; /* Set a default minimum width */
+    margin-left: -125px; /* Divide value of min-width by 2 */
+    background-color: #333; /* Black background color */
+    color: #fff; /* White text color */
+    text-align: center; /* Centered text */
+    border-radius: 2px; /* Rounded borders */
+    padding: 16px; /* Padding */
+    position: fixed; /* Sit on top of the screen */
+    z-index: 9999; /* Add a z-index if needed */
+    left: 50%; /* Center the snackbar */
+    top: 50%; /* 30px from the bottom */
+    transform: translate(-50%, -50%);
+  }
+  
+  /* Show the snackbar when clicking on a button (class added with JavaScript) */
+  #snackbar.show {
+    visibility: visible; /* Show the snackbar */
+    /* Add animation: Take 0.5 seconds to fade in and out the snackbar.
+    However, delay the fade out process for 2.5 seconds */
+    -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+    animation: fadein 0.5s, fadeout 0.5s 2.5s;
+  }
+  
+  /* Animations to fade the snackbar in and out */
+  @-webkit-keyframes fadein {
+    from {bottom: 0; opacity: 0;}
+    to {bottom: 30px; opacity: 1;}
+  }
+  
+  @keyframes fadein {
+    from {bottom: 0; opacity: 0;}
+    to {bottom: 30px; opacity: 1;}
+  }
+  
+  @-webkit-keyframes fadeout {
+    from {bottom: 30px; opacity: 1;}
+    to {bottom: 0; opacity: 0;}
+  }
+  
+  @keyframes fadeout {
+    from {bottom: 30px; opacity: 1;}
+    to {bottom: 0; opacity: 0;}
+  }
+  `);
+
+  const snackbar = document.createElement('div');
+  snackbar.id = snackbarId;
+
+  document.body.appendChild(snackbar);
+}
+
+function showSnackbar(text) {
+  // Get the snackbar DIV
+  const snackbar = document.getElementById('copy-helper-snackbar');
+
+  // Add the "show" class to DIV
+  snackbar.className = 'show';
+  snackbar.innerText = text;
+
+  // After 3 seconds, remove the show class from DIV
+  setTimeout(function () {
+    snackbar.className = snackbar.className.replace('show', '');
+  }, 3000);
 }
 
 run();
