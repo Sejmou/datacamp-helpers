@@ -11,25 +11,46 @@
 
 function run() {
   const currentPage = getCurrentPage();
-  const pageCrawler = pageCrawlers.get(currentPage);
-
-  let btnPos;
-
-  if (currentPage === 'exercise') {
-    btnPos = {
-      top: '51px',
-      right: '118px',
-    };
+  if (currentPage === 'other') {
+    return;
   }
 
-  addCopyButton(pageCrawler, btnPos);
-  addSnackbarToDOM();
-}
+  const snackbar = createSnackbar(); // for showing messages to user
 
-const pageCrawlers = new Map([
-  ['overview', overviewCrawler],
-  ['exercise', exerciseCrawler],
-]);
+  const btn = createCopyButton(
+    currentPage === 'exercise'
+      ? {
+          top: '51px',
+          right: '118px',
+        }
+      : undefined
+  );
+
+  const pageCrawlers = new Map([
+    ['overview', overviewCrawler],
+    ['exercise', exerciseCrawler],
+  ]);
+
+  const pageCrawler = pageCrawlers.get(currentPage);
+  const copyFn = () => {
+    const clipboardContent = pageCrawler();
+    GM.setClipboard(clipboardContent);
+    showSnackbar('Copied R markdown to clipboard!');
+  };
+  btn.addEventListener('click', copyFn);
+
+  document.addEventListener('keydown', event => {
+    if (event.ctrlKey && event.shiftKey && event.key === 'Insert') {
+      copyFn();
+    }
+  });
+
+  document.body.appendChild(btn);
+  document.body.appendChild(snackbar);
+
+  // TODO: do proper "cleanup"
+  // not sure how to do that currently, especially due to script also running in iframe in case of course overview
+}
 
 function getCurrentPage() {
   // Here, we figure out what page (or iframe) the script is running on - this was not so trivial as expected lol
@@ -223,7 +244,7 @@ function exerciseCrawler() {
   return rMarkdown;
 }
 
-function addCopyButton(pageCrawlFn, pos = { top: '40px', right: '40px' }) {
+function createCopyButton(pos = { top: '40px', right: '40px' }) {
   const btn = document.createElement('button');
   const btnId = 'copy-helper-btn';
 
@@ -246,92 +267,59 @@ function addCopyButton(pageCrawlFn, pos = { top: '40px', right: '40px' }) {
   btn.innerText = 'copy to clipboard';
   btn.type = 'button';
 
-  const copyFn = () => {
-    const clipboardContent = pageCrawlFn();
-    GM.setClipboard(clipboardContent);
-    showSnackbar('Copied R markdown to clipboard!');
-  };
-
-  btn.addEventListener('click', copyFn);
-
-  document.addEventListener('keydown', event => {
-    if (event.ctrlKey && event.shiftKey && event.key === 'Insert') {
-      copyFn();
-    }
-  });
-
-  document.body.appendChild(btn);
+  return btn;
 }
 
 // copied from https://www.w3schools.com/howto/howto_js_snackbar.asp
-function addSnackbarToDOM() {
+function createSnackbar() {
   const snackbarId = 'copy-helper-snackbar';
 
   addStyle(`
   #${snackbarId} {
-    display: none; /* Hidden by default. Visible on click */
-    min-width: 250px; /* Set a default minimum width */
-    margin-left: -125px; /* Divide value of min-width by 2 */
-    background-color: #333; /* Black background color */
-    color: #fff; /* White text color */
-    text-align: center; /* Centered text */
-    border-radius: 2px; /* Rounded borders */
-    padding: 16px; /* Padding */
-    position: fixed; /* Sit on top of the screen */
-    z-index: 9999; /* Add a z-index if needed */
-    left: 50%; /* Center the snackbar */
-    top: 50%; /* 30px from the bottom */
+    display: none;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 2px;
+    padding: 16px;
+    position: fixed;
+    z-index: 9999;
+    left: 50%;
+    top: 50%;
     transform: translate(-50%, -50%);
   }
   
-  /* Show the snackbar when clicking on a button (class added with JavaScript) */
-  #snackbar.show {
-    visibility: visible; /* Show the snackbar */
-    /* Add animation: Take 0.5 seconds to fade in and out the snackbar.
-    However, delay the fade out process for 2.5 seconds */
-    -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
-    animation: fadein 0.5s, fadeout 0.5s 2.5s;
+  #${snackbarId}.visible {
+    animation: fade-in-and-out 3s forwards;
+    display: flex;
   }
   
-  /* Animations to fade the snackbar in and out */
-  @-webkit-keyframes fadein {
-    from {bottom: 0; opacity: 0;}
-    to {bottom: 30px; opacity: 1;}
+  @keyframes fade-in-and-out {
+    0%, 100% {
+      opacity: 0;
+    }
+    15%, 85% {
+      opacity: 1;
+    }
   }
-  
-  @keyframes fadein {
-    from {bottom: 0; opacity: 0;}
-    to {bottom: 30px; opacity: 1;}
-  }
-  
-  @-webkit-keyframes fadeout {
-    from {bottom: 30px; opacity: 1;}
-    to {bottom: 0; opacity: 0;}
-  }
-  
-  @keyframes fadeout {
-    from {bottom: 30px; opacity: 1;}
-    to {bottom: 0; opacity: 0;}
-  }
+
   `);
 
   const snackbar = document.createElement('div');
   snackbar.id = snackbarId;
 
-  document.body.appendChild(snackbar);
+  return snackbar;
 }
 
 function showSnackbar(text) {
   // Get the snackbar DIV
   const snackbar = document.getElementById('copy-helper-snackbar');
 
-  // Add the "show" class to DIV
-  snackbar.className = 'show';
+  snackbar.classList.add('visible');
   snackbar.innerText = text;
 
-  // After 3 seconds, remove the show class from DIV
   setTimeout(function () {
-    snackbar.className = snackbar.className.replace('show', '');
+    snackbar.classList.remove('visible');
   }, 3000);
 }
 
