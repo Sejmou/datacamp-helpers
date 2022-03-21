@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.6
+// @version      0.6.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -155,6 +155,14 @@ function noLeadingWhitespace(strings, ...values) {
 
 function HTMLTextLinksCodeToMarkdown(el) {
   const childNodes = Array.from(el.childNodes);
+  if (el.nodeName === 'PRE') {
+    const textContent = el.textContent.trim();
+    if (el.childNodes[0].nodeName === 'CODE') {
+      return '```{r}\n' + noLeadingWhitespace`${textContent}` + '\n```';
+    } else {
+      return textContent;
+    }
+  }
   const textNodes = childNodes.map(c => {
     const textContent = c.textContent.trim();
 
@@ -215,9 +223,17 @@ ${chapters}
 }
 
 function exerciseCrawler() {
+  if (document.querySelector('iframe[title*="video"]')) {
+    return crawlVideoPage();
+  } else {
+    return crawlRegularExercisePage();
+  }
+}
+
+function crawlRegularExercisePage() {
   const exerciseTitle = getTextContent('.exercise--title');
 
-  const exercisePars = selectElements('.exercise--assignment p')
+  const exercisePars = selectElements('.exercise--assignment>div>*')
     .map(p => HTMLTextLinksCodeToMarkdown(p))
     .join('\n\n');
 
@@ -225,21 +241,64 @@ function exerciseCrawler() {
     .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
     .join('\n');
 
-  const codeEditor = selectElements('.monaco-editor')[0];
-  const lines = getTextContents('.view-line', codeEditor)
-    .map(l => l.replace(/ /g, ' ')) // instead of regular white space other char (ASCII code: 160 (decimal)) is used
-    .join('\n');
+  const codeEditors = selectElements('.monaco-editor');
+  const editorLinesStrs = codeEditors.map(codeEditor =>
+    getTextContents('.view-line', codeEditor)
+      .map(l => l.replace(/ /g, ' ')) // instead of regular white space other char (ASCII code: 160 (decimal)) is used
+      .join('\n')
+  );
 
-  const linesRCodeBlock = '```{r}\n' + noLeadingWhitespace`${lines}` + '\n```';
+  const RCodeBlocks = editorLinesStrs
+    .map(linesStr => {
+      const trimmed = noLeadingWhitespace`${linesStr}`; // not sure if that trimming is actually necessary
+      if (trimmed.length > 0) {
+        return '```{r}\n' + trimmed + '\n```';
+      } else {
+        return '';
+      }
+    })
+    .join('\n\n');
 
   const rMarkdown = noLeadingWhitespace`## ${exerciseTitle}
                              ${exercisePars}
                              
                              ${exerciseInstructions}
 
-                             ${linesRCodeBlock}`;
+                             ${RCodeBlocks}
+                             
+                             `;
 
   return rMarkdown;
+}
+
+function crawlVideoPage() {
+  const title = getTextContent('.exercise-area h1');
+
+  return `## ${title}`;
+
+  // TODO (if motivated): figure out a way to get the transcript too
+  // Current issue: the code structure up until now is synchronous
+  // but waiting for the transcript to load requires some kind of async code
+
+  // const spans = selectElements('main button span');
+  // const transcriptToggle = spans.find(s =>
+  //   s.textContent.toLowercase().includes('transcript')
+  // );
+
+  // const obs = new MutationObserver(mutation => {
+  //   console.log(mutation);
+
+  //   // if something changes about the button, it must be its text!
+  //   if (!transcriptToggle.textContent.toLowercase().includes('hide')) {
+  //     transcriptToggle.click();
+  //   } else {
+  //     // transcript should be available
+  //   }
+  // });
+
+  // obs.observe(transcriptToggle, { characterData: true });
+
+  // transcriptToggle.click();
 }
 
 function createCopyButton(pos = { top: '40px', right: '40px' }) {
@@ -297,7 +356,7 @@ function createSnackbar() {
       opacity: 0;
     }
     15%, 85% {
-      opacity: 1;
+      opacity: 0.9;
     }
   }
 
@@ -321,4 +380,4 @@ function showSnackbar(text) {
   }, 3000);
 }
 
-run();
+window.addEventListener('load', run, { once: true });
