@@ -22,10 +22,10 @@ function run() {
     };
   }
 
-  addPasteButton(pageCrawler, btnPos);
+  addCopyButton(pageCrawler, btnPos);
 }
 
-function addPasteButton(pageCrawlFn, pos = { top: '40px', right: '40px' }) {
+function addCopyButton(pageCrawlFn, pos = { top: '40px', right: '40px' }) {
   const btn = document.createElement('button');
 
   btn.style.position = 'fixed';
@@ -33,7 +33,7 @@ function addPasteButton(pageCrawlFn, pos = { top: '40px', right: '40px' }) {
   btn.style.right = pos.right;
   btn.style.zIndex = '999';
 
-  btn.innerText = 'paste to clipboard';
+  btn.innerText = 'copy to clipboard';
 
   btn.id = 'copy-helper-btn';
 
