@@ -215,11 +215,6 @@ ${chapters}
 }
 
 function exerciseCrawler() {
-  const codeEditor = selectElements('.monaco-editor')[0];
-  const lines = getTextContents('.view-line', codeEditor).map(l =>
-    l.replace(/ /g, ' ')
-  ); // oddly enough instead of regular white space other char (ASCII code: 160 (decimal)) is used
-
   const exerciseTitle = getTextContent('.exercise--title');
 
   const exercisePars = selectElements('.exercise--assignment p')
@@ -227,12 +222,15 @@ function exerciseCrawler() {
     .join('\n\n');
 
   let exerciseInstructions = selectElements('.exercise--instructions li')
-    .map(li => HTMLTextLinksCodeToMarkdown(li))
+    .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
     .join('\n');
 
-  const linesRCodeBlock = noLeadingWhitespace`\`\`\`{r}
-                                              ${lines}
-                                              \`\`\``;
+  const codeEditor = selectElements('.monaco-editor')[0];
+  const lines = getTextContents('.view-line', codeEditor)
+    .map(l => l.replace(/ /g, ' ')) // instead of regular white space other char (ASCII code: 160 (decimal)) is used
+    .join('\n');
+
+  const linesRCodeBlock = '```{r}\n' + noLeadingWhitespace`${lines}` + '\n```';
 
   const rMarkdown = noLeadingWhitespace`## ${exerciseTitle}
                              ${exerciseInstructions}
