@@ -221,7 +221,7 @@ function exerciseCrawler() {
     .map(p => HTMLTextLinksCodeToMarkdown(p))
     .join('\n\n');
 
-  let exerciseInstructions = selectElements('.exercise--instructions li')
+  const exerciseInstructions = selectElements('.exercise--instructions li')
     .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
     .join('\n');
 
@@ -233,9 +233,9 @@ function exerciseCrawler() {
   const linesRCodeBlock = '```{r}\n' + noLeadingWhitespace`${lines}` + '\n```';
 
   const rMarkdown = noLeadingWhitespace`## ${exerciseTitle}
-                             ${exerciseInstructions}
-
                              ${exercisePars}
+                             
+                             ${exerciseInstructions}
 
                              ${linesRCodeBlock}`;
 
