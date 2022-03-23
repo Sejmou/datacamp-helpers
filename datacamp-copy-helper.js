@@ -1,38 +1,38 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.6.1
+// @version      0.7
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=datacamp.com
 // @grant        GM.setClipboard
+// @downloadURL  https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
+// @updateURL    https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // ==/UserScript==
 
 function run() {
   const currentPage = getCurrentPage();
   if (currentPage === 'other') {
+    // nothing interesting to copy, just return directly!
     return;
   }
 
   const snackbar = createSnackbar(); // for showing messages to user
 
-  const btn = createCopyButton(
-    currentPage === 'exercise'
-      ? {
-          top: '51px',
-          right: '118px',
-        }
-      : undefined
-  );
+  const btn = createCopyButton();
+  if (currentPage === 'overview') {
+    btn.classList.add('overview'); // causes button to position itself differently to fit page layout better
+  }
 
   const pageCrawlers = new Map([
     ['overview', overviewCrawler],
     ['exercise', exerciseCrawler],
+    ['video', videoPageCrawler],
   ]);
 
-  const pageCrawler = pageCrawlers.get(currentPage);
   const copyFn = () => {
+    const pageCrawler = pageCrawlers.get(getCurrentPage());
     const clipboardContent = pageCrawler();
     GM.setClipboard(clipboardContent);
     showSnackbar('Copied R markdown to clipboard!');
@@ -48,8 +48,7 @@ function run() {
   document.body.appendChild(btn);
   document.body.appendChild(snackbar);
 
-  // TODO: do proper "cleanup"
-  // not sure how to do that currently, especially due to script also running in iframe in case of course overview
+  // TODO: do proper "cleanup" - or is it even necessary?
 }
 
 function getCurrentPage() {
@@ -61,6 +60,12 @@ function getCurrentPage() {
 
   if (document.body.className.includes('js-application')) {
     return 'overview';
+  } else if (
+    selectElements('main button span', document, false).find(s =>
+      s.textContent.toLowerCase().includes('transcript')
+    )
+  ) {
+    return 'video';
   } else if (document.querySelector('main.exercise-area')) {
     return 'exercise';
   } else {
@@ -89,12 +94,12 @@ function selectSingleElement(selector, root = document) {
   return matches[0];
 }
 
-function selectElements(selector, root = document) {
+function selectElements(selector, root = document, warnIfNoMatch = true) {
   const queryRoot = root.nodeName === 'IFRAME' ? root.contentWindow : root;
 
   const matches = Array.from(queryRoot.querySelectorAll(selector));
-  if (matches.length === 0) {
-    alert(noLeadingWhitespace`Note to copy helper script developer:
+  if (warnIfNoMatch && matches.length === 0) {
+    alert(noLeadingWhitespace`Warning:
     No element matches selector ${selector}!`);
   }
 
@@ -223,14 +228,6 @@ ${chapters}
 }
 
 function exerciseCrawler() {
-  if (document.querySelector('iframe[title*="video"]')) {
-    return crawlVideoPage();
-  } else {
-    return crawlRegularExercisePage();
-  }
-}
-
-function crawlRegularExercisePage() {
   const exerciseTitle = getTextContent('.exercise--title');
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
@@ -271,37 +268,34 @@ function crawlRegularExercisePage() {
   return rMarkdown;
 }
 
-function crawlVideoPage() {
+function videoPageCrawler() {
   const title = getTextContent('.exercise-area h1');
+  const transcriptElements = selectElements(
+    'section.vex-body>div[tabindex]>div>*',
+    document,
+    false
+  );
+  const transcriptContent = transcriptElements
+    .map(el => {
+      const textContentAsMarkdown = Array.from(el.childNodes)
+        .map(child => {
+          const textContent = child.textContent.trim();
 
-  return `## ${title}`;
+          if (child.nodeName === 'H2') {
+            return `### ${textContent}`;
+          } else {
+            return textContent + '\n';
+          }
+        })
+        .join('\n');
+      return textContentAsMarkdown;
+    })
+    .join('\n');
 
-  // TODO (if motivated): figure out a way to get the transcript too
-  // Current issue: the code structure up until now is synchronous
-  // but waiting for the transcript to load requires some kind of async code
-
-  // const spans = selectElements('main button span');
-  // const transcriptToggle = spans.find(s =>
-  //   s.textContent.toLowercase().includes('transcript')
-  // );
-
-  // const obs = new MutationObserver(mutation => {
-  //   console.log(mutation);
-
-  //   // if something changes about the button, it must be its text!
-  //   if (!transcriptToggle.textContent.toLowercase().includes('hide')) {
-  //     transcriptToggle.click();
-  //   } else {
-  //     // transcript should be available
-  //   }
-  // });
-
-  // obs.observe(transcriptToggle, { characterData: true });
-
-  // transcriptToggle.click();
+  return `## ${title}\n${transcriptContent}`;
 }
 
-function createCopyButton(pos = { top: '40px', right: '40px' }) {
+function createCopyButton() {
   const btn = document.createElement('button');
   const btnId = 'copy-helper-btn';
 
@@ -309,10 +303,17 @@ function createCopyButton(pos = { top: '40px', right: '40px' }) {
   addStyle(`
   #${btnId} {
     position: fixed;
-    top: ${pos.top};
-    right: ${pos.right};
+    top: 51px;
+    right: 118px;
     z-index: 999;
     transition: 0.25s all;
+  }
+
+  #${btnId}.overview {
+    /*if we are on course overview page, this class is set
+      we then need to position the button slightly differently*/
+    top: 40px;
+    right: 40px;
   }
 
   #${btnId}:active {
