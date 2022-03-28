@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8
+// @version      0.8.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -339,11 +339,9 @@ function videoIframeCrawler() {
                     //lang-out is for output code cells - we skip over them
                     return '';
                   } else if (el.nodeName === 'UL') {
-                    return Array.from(el.childNodes).map(
-                      c => ' * ' + c.textContent.trim() + '\n'
-                    );
+                    return HTMLListToMarkdown(el) + '\n'; // need additional line break after lists in Markdown!
                   } else {
-                    return el.textContent.trim();
+                    return HTMLTextLinksCodeToMarkdown(el);
                   }
                 })
                 .join('\n');
@@ -358,7 +356,44 @@ function videoIframeCrawler() {
     })
     .join('\n');
 
-  return noLeadingWhitespace`${slideContents}`;
+  return `${slideContents}`;
+}
+
+function HTMLListToMarkdown(ul, indentLevel = 0) {
+  console.log(indentLevel);
+  const childElements = Array.from(ul.childNodes).filter(
+    el => el.nodeName !== '#text'
+  );
+  return childElements
+    .map(ulChild => {
+      if (ulChild.nodeName === 'LI') {
+        const liChildNodes = Array.from(ulChild.childNodes);
+        return liChildNodes
+          .map(liChild => {
+            if (liChild.textContent.trim().length === 0) {
+              return '';
+            } else {
+              //console.log('list child:', liChild);
+              if (liChild.nodeName === 'UL') {
+                return HTMLListToMarkdown(liChild, indentLevel + 1);
+              } else {
+                return ' * ' + liChild.textContent.trim();
+              }
+            }
+          })
+          .filter(str => str.trim().length > 0)
+          .join('\n');
+      } else {
+        return ulChild.textContent.trim(); // should only be line breaks or empty text nodes
+      }
+    })
+    .filter(str => str.length > 0)
+    .map(str => '    '.repeat(indentLevel) + str)
+    .map(str => {
+      console.log(str);
+      return str;
+    })
+    .join('\n');
 }
 
 function createCopyButton() {
