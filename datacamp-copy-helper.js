@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.3
+// @version      0.8.7
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -28,6 +28,10 @@ function run() {
     btn.classList.add('overview');
   } else if (currentPage === 'video-iframe') {
     btn.classList.add('video-iframe');
+  }
+
+  if (currentPage === 'video-iframe') {
+    addImageCopyFunctionality();
   }
 
   const pageCrawlers = new Map([
@@ -397,11 +401,118 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
     .join('\n');
 }
 
-function createCopyButton() {
-  const btn = document.createElement('button');
-  const btnId = 'copy-helper-btn';
+function addImageCopyFunctionality() {
+  const imgs = selectElements(
+    '.slide-content img:not([class]), .slide-content img[class=""]'
+  ).map(img => img.cloneNode(true));
+  console.log(imgs);
 
-  btn.id = btnId;
+  const imgClass = 'copy-helper-slide-imgs';
+
+  imgs.forEach(img => document.body.appendChild(img));
+
+  if (imgs.length > 0) {
+    const imgViewBtnClass = 'copy-helper-toggle-slide-images-btn';
+    const visibleClass = 'visible';
+    const prevSlideImgBtnId = 'copy-helper-prev-slide-image-btn';
+    const nextSlideImgBtnId = 'copy-helper-next-slide-image-btn';
+
+    const viewSlideImageToggleBtn = createButton(
+      'view slide images',
+      null,
+      imgViewBtnClass
+    );
+    const prevSlideImgBtn = createButton(
+      'prev',
+      prevSlideImgBtnId,
+      imgViewBtnClass
+    );
+    const nextSlideImgBtn = createButton(
+      'next',
+      nextSlideImgBtnId,
+      imgViewBtnClass
+    );
+
+    let currImgIdx = 0;
+    let showSlideImgs = false;
+
+    const incImgIdx = () => {
+      if (currImgIdx < imgs.length - 1) currImgIdx++;
+      imgs.forEach((img, i) => {
+        img.className = i === currImgIdx ? imgClass : '';
+      });
+      imgs[currImgIdx].classList.add(imgClass);
+      nextSlideImgBtn.disabled = currImgIdx >= imgs.length - 1;
+      prevSlideImgBtn.disabled = currImgIdx <= 0;
+    };
+
+    const decImgIdx = () => {
+      if (currImgIdx > 0) currImgIdx--;
+      imgs.forEach((img, i) => {
+        img.className = i === currImgIdx ? imgClass : '';
+      });
+      imgs[currImgIdx].classList.add(visibleClass);
+      nextSlideImgBtn.disabled = currImgIdx >= imgs.length - 1;
+      prevSlideImgBtn.disabled = currImgIdx <= 0;
+    };
+
+    prevSlideImgBtn.addEventListener('click', decImgIdx);
+    nextSlideImgBtn.addEventListener('click', incImgIdx);
+
+    viewSlideImageToggleBtn.addEventListener('click', () => {
+      showSlideImgs = !showSlideImgs;
+      imgs.forEach((img, i) => {
+        img.className = showSlideImgs && i === currImgIdx ? imgClass : '';
+      });
+
+      viewSlideImageToggleBtn.innerText = !showSlideImgs
+        ? 'view slide images'
+        : 'close slide image view';
+    });
+
+    document.body.appendChild(viewSlideImageToggleBtn);
+    document.body.appendChild(prevSlideImgBtn);
+    document.body.appendChild(nextSlideImgBtn);
+
+    addStyle(`
+  .${imgViewBtnClass} {
+    position: fixed;
+    top: 40px;
+    right: 10px;
+    z-index: 999;
+    transition: 0.25s all;
+  }
+
+  .${imgViewBtnClass}:active {
+    transform: scale(0.92);
+    box-shadow: 3px 2px 22px 1px rgba(0, 0, 0, 0.24);
+  }
+
+  img.${imgClass} {
+    z-index: 997 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    display: block;
+  }
+
+  #${nextSlideImgBtnId} {
+    top: 70px;
+  }
+
+  #${prevSlideImgBtnId} {
+    top: 70px;
+    right: 100px;
+  }
+  `);
+  }
+}
+
+function createCopyButton() {
+  const btnId = 'copy-helper-btn';
+  const btn = createButton('copy to clipboard', btnId);
+
   addStyle(`
   #${btnId} {
     position: fixed;
@@ -428,9 +539,15 @@ function createCopyButton() {
   }
   `);
 
-  btn.innerText = 'copy to clipboard';
-  btn.type = 'button';
+  return btn;
+}
 
+function createButton(text, id = null, className = null) {
+  const btn = document.createElement('button');
+  if (id) btn.id = id;
+  if (className) btn.className = className;
+  btn.innerText = text;
+  btn.type = 'button';
   return btn;
 }
 
