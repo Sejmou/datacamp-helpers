@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.2
+// @version      0.8.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -354,6 +354,7 @@ function videoIframeCrawler() {
           .join('');
       }
     })
+    .filter((slide, i, slides) => slide !== slides[i - 1])
     .join('\n');
 
   return `${slideContents}`;
