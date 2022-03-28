@@ -221,7 +221,7 @@ title: 'Data Acquisition and Survey Methods (2022S) Exercise X: ${getTextContent
     '.header-hero__title'
   )}'
 author: "Samo Kolter (1181909)"
-date: "\`r format(Sys.time(), '%d %B, %Y')\`"
+date: "\`r Sys.setlocale('LC_TIME', 'en_GB.UTF-8'); format(Sys.time(), '%d %B, %Y')\`"
 output: 
   pdf_document:
     toc: true # activate table of content
