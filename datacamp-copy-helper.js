@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.7
+// @version      0.8.8
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -412,7 +412,7 @@ function addImageCopyFunctionality() {
   imgs.forEach(img => document.body.appendChild(img));
 
   if (imgs.length > 0) {
-    const imgViewBtnClass = 'copy-helper-toggle-slide-images-btn';
+    const slideImgBtnClass = 'copy-helper-slide-images-btn';
     const visibleClass = 'visible';
     const prevSlideImgBtnId = 'copy-helper-prev-slide-image-btn';
     const nextSlideImgBtnId = 'copy-helper-next-slide-image-btn';
@@ -420,18 +420,12 @@ function addImageCopyFunctionality() {
     const viewSlideImageToggleBtn = createButton(
       'view slide images',
       null,
-      imgViewBtnClass
+      slideImgBtnClass
     );
-    const prevSlideImgBtn = createButton(
-      'prev',
-      prevSlideImgBtnId,
-      imgViewBtnClass
-    );
-    const nextSlideImgBtn = createButton(
-      'next',
-      nextSlideImgBtnId,
-      imgViewBtnClass
-    );
+    const prevSlideImgBtn = createButton('prev', prevSlideImgBtnId);
+    const nextSlideImgBtn = createButton('next', nextSlideImgBtnId);
+
+    const ctrlBtns = [prevSlideImgBtn, nextSlideImgBtn];
 
     let currImgIdx = 0;
     let showSlideImgs = false;
@@ -465,6 +459,10 @@ function addImageCopyFunctionality() {
         img.className = showSlideImgs && i === currImgIdx ? imgClass : '';
       });
 
+      ctrlBtns.forEach(btn => {
+        btn.className = showSlideImgs ? slideImgBtnClass : '';
+      });
+
       viewSlideImageToggleBtn.innerText = !showSlideImgs
         ? 'view slide images'
         : 'close slide image view';
@@ -475,7 +473,7 @@ function addImageCopyFunctionality() {
     document.body.appendChild(nextSlideImgBtn);
 
     addStyle(`
-  .${imgViewBtnClass} {
+  .${slideImgBtnClass} {
     position: fixed;
     top: 40px;
     right: 10px;
@@ -483,7 +481,7 @@ function addImageCopyFunctionality() {
     transition: 0.25s all;
   }
 
-  .${imgViewBtnClass}:active {
+  .${slideImgBtnClass}:active {
     transform: scale(0.92);
     box-shadow: 3px 2px 22px 1px rgba(0, 0, 0, 0.24);
   }
@@ -498,12 +496,17 @@ function addImageCopyFunctionality() {
   }
 
   #${nextSlideImgBtnId} {
-    top: 70px;
+    top: unset;
+    bottom: 10px;
+    left: 51%;
+    right: unset;
   }
 
   #${prevSlideImgBtnId} {
-    top: 70px;
-    right: 100px;
+    top: unset;
+    bottom: 10px;
+    right: 51%;
+    left: unset;
   }
   `);
   }
