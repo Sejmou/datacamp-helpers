@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.8
+// @version      0.8.9
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -31,7 +31,7 @@ function run() {
   }
 
   if (currentPage === 'video-iframe') {
-    addImageCopyFunctionality();
+    addSlideImageViewFeatures();
   }
 
   const pageCrawlers = new Map([
@@ -168,6 +168,15 @@ function noLeadingWhitespace(strings, ...values) {
     })
     .join('\n')
     .trim();
+}
+
+function replaceAllExceptLast(str, search, replace) {
+  return str
+    .split(search)
+    .reduce(
+      (prev, curr, i, substrs) =>
+        prev + (i !== substrs.length - 1 ? replace : search) + curr
+    );
 }
 
 function HTMLTextLinksCodeToMarkdown(el) {
@@ -365,7 +374,6 @@ function videoIframeCrawler() {
 }
 
 function HTMLListToMarkdown(ul, indentLevel = 0) {
-  console.log(indentLevel);
   const childElements = Array.from(ul.childNodes).filter(
     el => el.nodeName !== '#text'
   );
@@ -378,7 +386,6 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
             if (liChild.textContent.trim().length === 0) {
               return '';
             } else {
-              //console.log('list child:', liChild);
               if (liChild.nodeName === 'UL') {
                 return HTMLListToMarkdown(liChild, indentLevel + 1);
               } else {
@@ -394,18 +401,13 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
     })
     .filter(str => str.length > 0)
     .map(str => '    '.repeat(indentLevel) + str)
-    .map(str => {
-      console.log(str);
-      return str;
-    })
     .join('\n');
 }
 
-function addImageCopyFunctionality() {
+function addSlideImageViewFeatures() {
   const imgs = selectElements(
     '.slide-content img:not([class]), .slide-content img[class=""]'
   ).map(img => img.cloneNode(true));
-  console.log(imgs);
 
   const imgClass = 'copy-helper-slide-imgs';
 
@@ -416,6 +418,8 @@ function addImageCopyFunctionality() {
     const visibleClass = 'visible';
     const prevSlideImgBtnId = 'copy-helper-prev-slide-image-btn';
     const nextSlideImgBtnId = 'copy-helper-next-slide-image-btn';
+    // TODO: comment out once download actually works lol
+    // const downloadSlideImgBtnId = 'copy-helper-slide--image-download-btn';
 
     const viewSlideImageToggleBtn = createButton(
       'view slide images',
@@ -424,7 +428,13 @@ function addImageCopyFunctionality() {
     );
     const prevSlideImgBtn = createButton('prev', prevSlideImgBtnId);
     const nextSlideImgBtn = createButton('next', nextSlideImgBtnId);
+    // TODO: comment out once download actually works lol
+    // const downloadSlideImgBtn = createButton(
+    //   'download current image',
+    //   downloadSlideImgBtnId
+    // );
 
+    // TODO: include downloadSlideImgBtn here once download actually works lol
     const ctrlBtns = [prevSlideImgBtn, nextSlideImgBtn];
 
     let currImgIdx = 0;
@@ -466,11 +476,70 @@ function addImageCopyFunctionality() {
       viewSlideImageToggleBtn.innerText = !showSlideImgs
         ? 'view slide images'
         : 'close slide image view';
+
+      if (showSlideImgs) {
+        selectSingleElement('video').pause();
+      }
     });
 
+    // TODO: make this work if motivated
+    // downloadSlideImgBtn.addEventListener('click', () => {
+    //   if (showSlideImgs) {
+    //     // slide images should actually always be visible if this button is clicked
+    //     const downloadImg = imgSrc => {
+    //       const link = document.createElement('a');
+    //       const filename = replaceAllExceptLast(
+    //         imgSrc.replace(/^.*[\\\/]/, ''), // https://stackoverflow.com/a/29182327/13727176
+    //         '.',
+    //         '_'
+    //       );
+    //       link.download = filename;
+    //       link.href = imgSrc;
+    //       link.click();
+    //     };
+
+    //     const currImg = imgs[currImgIdx];
+
+    //     if (currImg.src.startsWith('http')) {
+    //       // tried this to fetch images from other site and download
+    //       // doesn't work due to CORS issues - script origin is https://projector.datacamp.com, data origin is https://assets.datacamp.com/
+    //       // or is the issue that the client where javascript is executed has different origin? not sure
+    //       fetch(currImg.src)
+    //         .then(response => response.blob())
+    //         .then(data => {
+    //           const urlCreator = window.URL || window.webkitURL;
+    //           const imageData = urlCreator.createObjectURL(data);
+    //           console.log(imageData);
+    //           currImg.src = imageData;
+    //           downloadImg(currImg.src);
+    //         });
+    //     } else {
+    //       downloadImg(currImg.src);
+    //     }
+    //   }
+    // });
+
+    document.body.addEventListener(
+      'keydown',
+      e => {
+        const leftKey = 'ArrowLeft';
+        const rightKey = 'ArrowRight';
+        const arrowKeys = [leftKey, rightKey];
+        if (showSlideImgs && arrowKeys.includes(e.key)) {
+          e.stopPropagation();
+          if (e.key == leftKey) {
+            decImgIdx();
+          }
+          if (e.key == rightKey) {
+            incImgIdx();
+          }
+        }
+      },
+      { capture: true }
+    );
+
     document.body.appendChild(viewSlideImageToggleBtn);
-    document.body.appendChild(prevSlideImgBtn);
-    document.body.appendChild(nextSlideImgBtn);
+    ctrlBtns.forEach(btn => document.body.appendChild(btn));
 
     addStyle(`
   .${slideImgBtnClass} {
@@ -509,6 +578,13 @@ function addImageCopyFunctionality() {
     left: unset;
   }
   `);
+    //TODO: add those styles once download actually works
+    // #${downloadSlideImgBtnId} {
+    //   /* if visible, displayed right above 'Copy to clipboard' button */
+    //   top: 10px;
+    //   right: 10px;
+    //   z-index: 1000;
+    // }
   }
 }
 
