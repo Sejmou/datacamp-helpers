@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.9
+// @version      0.8.10
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -85,14 +85,24 @@ function getCurrentPage() {
   }
 }
 
-function getTextContent(elementSelector, root = document) {
-  return selectSingleElement(elementSelector, root)?.textContent?.trim();
+function getTextContent(elementSelector, root = document, trim = true) {
+  const textContent = selectSingleElement(elementSelector, root)?.textContent;
+  if (trim) {
+    return textContent?.trim();
+  } else {
+    return textContent;
+  }
 }
 
-function getTextContents(elementSelector, root = document) {
-  return selectElements(elementSelector, root).map(el =>
-    el.textContent?.trim()
-  );
+function getTextContents(elementSelector, root = document, trim = true) {
+  return selectElements(elementSelector, root).map(el => {
+    const textContent = el.textContent;
+    if (trim) {
+      return textContent?.trim();
+    } else {
+      return textContent;
+    }
+  });
 }
 
 function selectSingleElement(selector, root = document) {
@@ -184,7 +194,7 @@ function HTMLTextLinksCodeToMarkdown(el) {
   if (el.nodeName === 'PRE') {
     const textContent = el.textContent.trim();
     if (el.childNodes[0].nodeName === 'CODE') {
-      return '```{r}\n' + noLeadingWhitespace`${textContent}` + '\n```';
+      return '```{r}\n' + `${textContent}` + '\n```';
     } else {
       return textContent;
     }
@@ -261,14 +271,15 @@ function exerciseCrawler() {
 
   const codeEditors = selectElements('.monaco-editor');
   const editorLinesStrs = codeEditors.map(codeEditor =>
-    getTextContents('.view-line', codeEditor)
+    getTextContents('.view-line', codeEditor, false)
       .map(l => l.replace(/ /g, ' ')) // instead of regular white space other char (ASCII code: 160 (decimal)) is used
+      .filter(str => str.trim().length > 0)
       .join('\n')
   );
 
   const RCodeBlocks = editorLinesStrs
     .map(linesStr => {
-      const trimmed = noLeadingWhitespace`${linesStr}`; // not sure if that trimming is actually necessary
+      const trimmed = linesStr.trim(); // not sure if that trimming is actually necessary
       if (trimmed.length > 0) {
         return '```{r}\n' + trimmed + '\n```';
       } else {
@@ -277,14 +288,13 @@ function exerciseCrawler() {
     })
     .join('\n\n');
 
-  const rMarkdown = noLeadingWhitespace`## ${exerciseTitle}
-                             ${exercisePars}
+  const rMarkdown =
+    noLeadingWhitespace`## ${exerciseTitle}
+                        ${exercisePars}
                              
-                             ${exerciseInstructions}
-
-                             ${RCodeBlocks}
-                             
-                             `;
+                        ${exerciseInstructions}` +
+    '\n\n' +
+    RCodeBlocks;
 
   return rMarkdown;
 }
