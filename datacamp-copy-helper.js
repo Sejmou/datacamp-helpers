@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.10
+// @version      0.8.11
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -444,8 +444,10 @@ function addSlideImageViewFeatures() {
     //   downloadSlideImgBtnId
     // );
 
-    // TODO: include downloadSlideImgBtn here once download actually works lol
     const ctrlBtns = [prevSlideImgBtn, nextSlideImgBtn];
+
+    const backgroundDiv = document.createElement('div');
+    const backgroundDivId = 'copy-helper-slide-image-background';
 
     let currImgIdx = 0;
     let showSlideImgs = false;
@@ -480,8 +482,14 @@ function addSlideImageViewFeatures() {
       });
 
       ctrlBtns.forEach(btn => {
-        btn.className = showSlideImgs ? slideImgBtnClass : '';
+        btn.className =
+          showSlideImgs && imgs.length > 1 ? slideImgBtnClass : '';
       });
+
+      backgroundDiv.id = showSlideImgs ? backgroundDivId : '';
+
+      // TODO: comment out once download actually works lol
+      //downloadSlideImgBtn.id = showSlideImgs ? downloadSlideImgBtnId : '';
 
       viewSlideImageToggleBtn.innerText = !showSlideImgs
         ? 'view slide images'
@@ -550,6 +558,7 @@ function addSlideImageViewFeatures() {
 
     document.body.appendChild(viewSlideImageToggleBtn);
     ctrlBtns.forEach(btn => document.body.appendChild(btn));
+    document.body.appendChild(backgroundDiv);
 
     addStyle(`
   .${slideImgBtnClass} {
@@ -568,10 +577,21 @@ function addSlideImageViewFeatures() {
   img.${imgClass} {
     z-index: 997 !important;
     position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
+    top: 50% !important;
+    left: 50% !important;
+    height: 85vh !important;
     display: block;
+    transform: translate(-50%, -50%);
+  }
+
+  #${backgroundDivId} {
+    z-index: 996;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #FFFFFF;
   }
 
   #${nextSlideImgBtnId} {
