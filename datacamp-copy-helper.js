@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.11
+// @version      0.8.12
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -116,7 +116,7 @@ function selectSingleElement(selector, root = document) {
   return matches[0];
 }
 
-function selectElements(selector, root = document, warnIfNoMatch = true) {
+function selectElements(selector, root = document, warnIfNoMatch = false) {
   const queryRoot = root.nodeName === 'IFRAME' ? root.contentWindow : root;
 
   const matches = Array.from(queryRoot.querySelectorAll(selector));
