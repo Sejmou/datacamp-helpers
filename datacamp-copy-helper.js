@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.12
+// @version      0.8.13
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -194,7 +194,7 @@ function HTMLTextLinksCodeToMarkdown(el) {
   if (el.nodeName === 'PRE') {
     const textContent = el.textContent.trim();
     if (el.childNodes[0].nodeName === 'CODE') {
-      return '```{r}\n' + `${textContent}` + '\n```';
+      return '```{r}\n' + `${textContent.replace(/ /g, ' ')}` + '\n```';
     } else {
       return textContent;
     }
