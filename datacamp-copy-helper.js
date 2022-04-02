@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.8.13
+// @version      0.9
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -198,6 +198,8 @@ function HTMLTextLinksCodeToMarkdown(el) {
     } else {
       return textContent;
     }
+  } else if (el.nodeName === 'TABLE') {
+    return HTMLTableToMarkdown(el);
   }
   const textNodes = childNodes.map(c => {
     const textContent = c.textContent.trim();
@@ -412,6 +414,40 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
     .filter(str => str.length > 0)
     .map(str => '    '.repeat(indentLevel) + str)
     .join('\n');
+}
+
+// adapted from: https://gist.github.com/styfle/c4bba2d29e6cb9b585de72207c006af7
+function HTMLTableToMarkdown(el) {
+  let outputStr = '| ';
+  const thead = selectSingleElement('thead');
+  const headcells = selectElements('th, td', thead);
+  for (let i = 0; i < headcells.length; i++) {
+    const cell = headcells[i];
+    outputStr += ' ** ' + cell.textContent.trim() + ' ** | ';
+  }
+
+  outputStr += '\n';
+
+  for (let i = 0; i < headcells.length; i++) {
+    outputStr += '|---------';
+  }
+
+  outputStr += '|\n';
+
+  const tbody = el.querySelector('tbody');
+  const trs = tbody.querySelectorAll('tr');
+  for (let i = 0; i < trs.length; i++) {
+    outputStr += '| ';
+    const tr = trs.item(i);
+    const tds = tr.querySelectorAll('td');
+    for (let j = 0; j < tds.length; j++) {
+      const td = tds.item(j);
+      outputStr += td.textContent.trim() + ' | ';
+    }
+    outputStr += '\n';
+  }
+
+  return outputStr;
 }
 
 function addSlideImageViewFeatures() {
