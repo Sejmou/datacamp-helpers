@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.9
+// @version      0.9.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -261,7 +261,7 @@ ${chapters}
 }
 
 function exerciseCrawler() {
-  const exerciseTitle = getTextContent('.exercise--title');
+  const exerciseTitle = `## ${getTextContent('.exercise--title')}`;
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
     .map(p => HTMLTextLinksCodeToMarkdown(p))
@@ -290,13 +290,12 @@ function exerciseCrawler() {
     })
     .join('\n\n');
 
-  const rMarkdown =
-    noLeadingWhitespace`## ${exerciseTitle}
-                        ${exercisePars}
-                             
-                        ${exerciseInstructions}` +
-    '\n\n' +
-    RCodeBlocks;
+  const rMarkdown = [
+    exerciseTitle,
+    exercisePars,
+    exerciseInstructions,
+    RCodeBlocks,
+  ].join('\n\n');
 
   return rMarkdown;
 }
