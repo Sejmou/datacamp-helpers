@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.9.5
+// @version      1.0
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -34,9 +34,22 @@ function run() {
     addSlideImageViewFeatures();
   }
 
+  let exerciseCrawlerFn = exerciseCrawler;
+
+  if (currentPage === 'exercise') {
+    const checkboxContainer = createConsoleOutputToggleCheckbox();
+    document.body.appendChild(checkboxContainer);
+
+    exerciseCrawlerFn = () => {
+      const includeConsoleOutput =
+        checkboxContainer.querySelector('input').checked;
+      return exerciseCrawler(includeConsoleOutput);
+    };
+  }
+
   const pageCrawlers = new Map([
     ['overview', overviewCrawler],
-    ['exercise', exerciseCrawler],
+    ['exercise', exerciseCrawlerFn],
     ['dragdrop-exercise', dragDropExerciseCrawler],
     ['video', videoPageCrawler],
     ['video-iframe', videoIframeCrawler],
@@ -263,7 +276,7 @@ ${chapters}
 `;
 }
 
-function exerciseCrawler() {
+function exerciseCrawler(includeConsoleOutput = false) {
   const exerciseTitle = `## ${getTextContent('.exercise--title')}`;
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
@@ -286,19 +299,32 @@ function exerciseCrawler() {
     .map(linesStr => {
       const trimmed = linesStr.trim(); // not sure if that trimming is actually necessary
       if (trimmed.length > 0) {
-        return '```{r}\n' + trimmed + '\n```';
+        return (
+          `\`\`\`{r${includeConsoleOutput ? ', eval=FALSE' : ''}}\n` +
+          trimmed +
+          '\n```'
+        );
       } else {
         return '';
       }
     })
     .join('\n\n');
 
+  const RConsoleOutput = includeConsoleOutput
+    ? '```\n' +
+      getTextContents('[data-cy="console-editor"]>div>div>div').join('\n') +
+      '\n```'
+    : '';
+
   const rMarkdown = [
     exerciseTitle,
     exercisePars,
     exerciseInstructions,
     RCodeBlocks,
-  ].join('\n\n');
+    RConsoleOutput,
+  ]
+    .filter(str => str.length > 0)
+    .join('\n\n');
 
   return rMarkdown;
 }
@@ -737,7 +763,7 @@ function createCopyButton() {
   #${btnId} {
     position: fixed;
     top: 51px;
-    right: 118px;
+    right: 350px;
     z-index: 999;
     transition: 0.25s all;
   }
@@ -822,6 +848,41 @@ function showSnackbar(text) {
   setTimeout(function () {
     snackbar.classList.remove('visible');
   }, 3000);
+}
+
+function createConsoleOutputToggleCheckbox() {
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  const checkboxId = 'datacamp-copy-helper-checkbox';
+  checkbox.id = checkboxId;
+
+  const label = document.createElement('label');
+  label.htmlFor = checkboxId;
+  label.appendChild(document.createTextNode('include console output?'));
+
+  const container = document.createElement('div');
+  const containerId = checkboxId + 'container';
+  container.id = containerId;
+
+  container.appendChild(checkbox);
+  container.appendChild(label);
+
+  addStyle(`
+    #${containerId} {
+      position: fixed;
+      top: 51px;
+      right: 140px;
+      z-index: 999;
+      color: white;
+      display: flex;
+      justify-content: center;
+      height: 30px;
+      align-items: center;
+      gap: 10px;
+    }
+  `);
+
+  return container;
 }
 
 window.addEventListener('load', run, { once: true });
