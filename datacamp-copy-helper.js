@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      0.9.1
+// @version      0.9.5
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -37,6 +37,7 @@ function run() {
   const pageCrawlers = new Map([
     ['overview', overviewCrawler],
     ['exercise', exerciseCrawler],
+    ['dragdrop-exercise', dragDropExerciseCrawler],
     ['video', videoPageCrawler],
     ['video-iframe', videoIframeCrawler],
   ]);
@@ -78,6 +79,8 @@ function getCurrentPage() {
     )
   ) {
     return 'video';
+  } else if (document.querySelector('.drag-and-drop-exercise')) {
+    return 'dragdrop-exercise';
   } else if (document.querySelector('main.exercise-area')) {
     return 'exercise';
   } else {
@@ -300,6 +303,33 @@ function exerciseCrawler() {
   return rMarkdown;
 }
 
+function dragDropExerciseCrawler() {
+  const exerciseTitle = `## ${getTextContent('.dc-panel__body h4')}`;
+
+  const [descContainer, instructionsContainer] = selectElements(
+    '.le-shared-sticky-header+div>div>div'
+  );
+
+  const exercisePars = selectElements('*', descContainer)
+    .map(p => HTMLTextLinksCodeToMarkdown(p))
+    .join('\n\n');
+
+  const exerciseInstructions = selectElements('li', instructionsContainer)
+    .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
+    .join('\n');
+
+  const dragdropExerciseContent = getDragdropContent();
+
+  const rMarkdown = [
+    exerciseTitle,
+    exercisePars,
+    exerciseInstructions,
+    dragdropExerciseContent,
+  ].join('\n\n');
+
+  return rMarkdown;
+}
+
 function videoPageCrawler() {
   const title = getTextContent('.exercise-area h1');
   const transcriptElements = selectElements(
@@ -325,6 +355,52 @@ function videoPageCrawler() {
     .join('\n');
 
   return `## ${title}\n${transcriptContent}`;
+}
+
+function getDragdropContent() {
+  const container = selectSingleElement('.drag-and-drop-exercise');
+  if (!container) return null;
+
+  const headings = selectElements('.droppable-container h5', container);
+  const headerRow = stringArrToMarkdownTableRow(
+    headings.map(h => h.textContent.trim())
+  );
+
+  const sep = stringArrToMarkdownTableRow(headings.map(() => '---'));
+
+  const contentCols = headings.map(h => {
+    contentContainer = h.parentNode;
+    return Array.from(contentContainer.querySelector('div').children).map(div =>
+      div.textContent.trim()
+    );
+  });
+
+  const contentRows = twoDArrayFromColArrays(contentCols).map(col => {
+    return stringArrToMarkdownTableRow(col);
+  });
+  return [headerRow, sep, ...contentRows].join('\n');
+}
+
+function stringArrToMarkdownTableRow(strArr) {
+  return '| ' + strArr.join(' | ') + ' |';
+}
+
+function twoDArrayFromColArrays(...colArrays) {
+  let arrMaxLength = 0;
+  colArrays.forEach(arr => {
+    if (arr.length > arrMaxLength) {
+      arrMaxLength = arr.length;
+    }
+  });
+
+  const output = new Array(arrMaxLength);
+
+  for (i = 0; i < arrMaxLength; i++) {
+    const row = colArrays.map(arr => arr[i]).flat();
+    output[i] = row;
+  }
+
+  return output;
 }
 
 function videoIframeCrawler() {
