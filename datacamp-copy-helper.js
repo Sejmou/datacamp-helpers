@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.0.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -389,7 +389,7 @@ function getDragdropContent() {
 
   const headings = selectElements('.droppable-container h5', container);
   const headerRow = stringArrToMarkdownTableRow(
-    headings.map(h => h.textContent.trim())
+    headings.map(h => '**' + h.textContent.trim() + '**')
   );
 
   const sep = stringArrToMarkdownTableRow(headings.map(() => '---'));
