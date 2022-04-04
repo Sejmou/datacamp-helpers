@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.1.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -11,8 +11,8 @@
 // @updateURL    https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // ==/UserScript==
 
-function run() {
-  const currentPage = getCurrentPage();
+async function run() {
+  const currentPage = await getCurrentPage();
   if (currentPage === 'other') {
     // nothing interesting to copy, just return directly!
     return;
@@ -30,7 +30,6 @@ function run() {
     const detectExerciseChange = function () {
       const currentExercise = getURLQueryParams().ex;
       if (currentExercise != initialExercise) {
-        console.log('current exercise: ' + currentExercise);
         handleExerciseChange();
       }
     };
@@ -56,6 +55,8 @@ function run() {
     btn.classList.add('overview');
   } else if (currentPage === 'video-iframe') {
     btn.classList.add('video-iframe');
+  } else if (currentPage === 'video') {
+    btn.classList.add('video');
   }
 
   if (currentPage === 'video-iframe') {
@@ -84,7 +85,8 @@ function run() {
   ]);
 
   const copyFn = () => {
-    const pageCrawler = pageCrawlers.get(getCurrentPage());
+    const pageCrawler = pageCrawlers.get(currentPage);
+    console.log(pageCrawler);
     const clipboardContent = pageCrawler();
     GM.setClipboard(clipboardContent);
     showSnackbar('Copied R markdown to clipboard!');
@@ -101,30 +103,50 @@ function run() {
   addToDocumentBody(snackbar);
 }
 
-function getCurrentPage() {
+async function getCurrentPage() {
   // Here, we figure out what page (or iframe) the script is running on - this was not so trivial as expected lol
   // The DataCamp course content is loaded inside iframes on the course overview page, essentially creating isolated DOMs
   // We cannot access the content/DOM of the iframe from script instances running on the main page due to CORS issues!
   // However, luckily, TamperMonkey can also be loaded into iframes directly, as long as the iframe URL matches any @include in the meta tags
   // This means that in case iframes from datacamp are also loaded, several script instances may be running at the same time
 
-  if (document.body.className.includes('js-application')) {
-    return 'overview';
-  } else if (document.querySelector('.slides')) {
-    return 'video-iframe';
-  } else if (
-    selectElements('main button span', document, false).find(s =>
-      s.textContent.toLowerCase().includes('transcript')
-    )
-  ) {
-    return 'video';
-  } else if (document.querySelector('.drag-and-drop-exercise')) {
-    return 'dragdrop-exercise';
-  } else if (document.querySelector('.exercise--sidebar-header')) {
-    return 'exercise';
-  } else {
-    return 'other';
-  }
+  // We need to make everything async because of the video page
+  // we cannot be sure that we're looking at the video page until the document body is modified and a certain element becomes available
+
+  return new Promise(resolve => {
+    if (document.body.className.includes('js-application')) {
+      resolve('overview');
+    } else if (document.querySelector('.slides')) {
+      resolve('video-iframe');
+    } else if (document.querySelector('.drag-and-drop-exercise')) {
+      resolve('dragdrop-exercise');
+    } else if (document.querySelector('.exercise--sidebar-header')) {
+      resolve('exercise');
+    } else if (
+      document.querySelector('main.exercise-area')
+      // video already loaded
+    ) {
+      resolve('video');
+    } else if (
+      document.body.className.includes('vsc-initialized')
+      // video not yet loaded
+    ) {
+      return new Promise(resolve => {
+        new MutationObserver((_, obs) => {
+          if (document.querySelector('main.exercise-area')) {
+            resolve('video');
+          } else {
+            resolve('other');
+          }
+          obs.disconnect();
+        }).observe(document.body, {
+          childList: true,
+        });
+      });
+    } else {
+      resolve('other');
+    }
+  });
 }
 
 function getURLQueryParams() {
@@ -815,6 +837,11 @@ function createCopyButton() {
   #${btnId}.video-iframe {
     top: 10px;
     right: 10px;
+  }
+
+  #${btnId}.video {
+    top: 70px;
+    right: 70px;
   }
   `);
 
