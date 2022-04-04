@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.2.4
+// @version      1.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -58,6 +58,7 @@ async function run() {
   }
 
   let exerciseCrawlerFn = exerciseCrawler;
+  let iFrameCrawlerFn = videoIframeCrawler;
 
   if (currentPage === 'exercise') {
     const checkboxContainer = createConsoleOutputToggleCheckbox();
@@ -70,12 +71,24 @@ async function run() {
     };
   }
 
+  if (currentPage === 'video-iframe') {
+    const checkboxContainer = createConsoleOutputToggleCheckbox();
+    addToDocumentBody(checkboxContainer);
+    checkboxContainer.classList.add('video-iframe');
+
+    iFrameCrawlerFn = () => {
+      const includeConsoleOutput =
+        checkboxContainer.querySelector('input').checked;
+      return videoIframeCrawler(includeConsoleOutput);
+    };
+  }
+
   const pageCrawlers = new Map([
     ['overview', overviewCrawler],
     ['exercise', exerciseCrawlerFn],
     ['dragdrop-exercise', dragDropExerciseCrawler],
     ['video', videoPageCrawler],
-    ['video-iframe', videoIframeCrawler],
+    ['video-iframe', iFrameCrawlerFn],
   ]);
 
   const copyFn = () => {
@@ -516,7 +529,7 @@ function twoDArrayFromColArrays(...colArrays) {
   return output;
 }
 
-function videoIframeCrawler() {
+function videoIframeCrawler(includeConsoleOutput) {
   const slideContents = selectElements('.slide-content>div') //>*>div>div')
     .map(el => {
       const childNodes = Array.from(el.childNodes);
@@ -540,16 +553,24 @@ function videoIframeCrawler() {
                   if (
                     el.nodeName === 'PRE' // code is always inside <code> tag wrapped by <pre>
                   ) {
-                    if (!el.className.includes('lang-out')) {
+                    if (
+                      includeConsoleOutput ||
+                      !el.className.includes('lang-out')
+                      //lang-out is for output code cells - we skip over them, except if explicitly included
+                    ) {
                       return (
                         '```' +
-                        `${el.className.includes('lang-r') ? '{r}' : ''}` +
+                        `${
+                          el.className.includes('lang-r')
+                            ? `{r${includeConsoleOutput ? ', eval=FALSE' : ''}}`
+                            : ''
+                        }` +
                         '\n' +
                         el.textContent.trim() +
                         '\n```'
                       );
                     }
-                    //lang-out is for output code cells - we skip over them
+                    //lang-out is for output code cells - we skip over them, except if explicitly included
                     return '';
                   } else if (el.nodeName === 'UL') {
                     return HTMLListToMarkdown(el) + '\n'; // need additional line break after lists in Markdown!
@@ -952,7 +973,7 @@ function createConsoleOutputToggleCheckbox() {
 
   const label = document.createElement('label');
   label.htmlFor = checkboxId;
-  label.appendChild(document.createTextNode('include console output?'));
+  label.appendChild(document.createTextNode('include code output?'));
 
   const container = document.createElement('div');
   const containerId = checkboxId + 'container';
@@ -973,6 +994,12 @@ function createConsoleOutputToggleCheckbox() {
       height: 30px;
       align-items: center;
       gap: 10px;
+    }
+
+    #${containerId}.video-iframe {
+      color: black;
+      right: 164px;
+      top: 7px;
     }
   
     #${containerId}:hover, #${containerId} *:hover {
