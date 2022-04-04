@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.1.2
+// @version      1.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -80,7 +80,6 @@ async function run() {
 
   const copyFn = () => {
     const pageCrawler = pageCrawlers.get(currentPage);
-    console.log(pageCrawler);
     const clipboardContent = pageCrawler();
     GM.setClipboard(clipboardContent);
     showSnackbar('Copied R markdown to clipboard!');
@@ -264,6 +263,8 @@ function HTMLTextLinksCodeToMarkdown(el) {
     }
   } else if (el.nodeName === 'TABLE') {
     return HTMLTableToMarkdown(el);
+  } else if (el.nodeName === 'UL') {
+    return HTMLListToMarkdown(el) + '\n';
   }
   const textNodes = childNodes.map(c => {
     const textContent = c.textContent.trim();
@@ -331,9 +332,14 @@ function exerciseCrawler(includeConsoleOutput = false) {
     .map(p => HTMLTextLinksCodeToMarkdown(p))
     .join('\n\n');
 
-  const exerciseInstructions = selectElements('.exercise--instructions li')
-    .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
-    .join('\n');
+  const exerciseBeginning = [exerciseTitle, exercisePars].join('\n');
+
+  const subExerciseBullets = selectElements('.progress-bullet__link');
+  const subExerciseIdx = subExerciseBullets.findIndex(b =>
+    b.className.includes('active-tab')
+  );
+
+  const exerciseInstructions = getExerciseInstructions(subExerciseBullets);
 
   const codeEditors = selectElements('.monaco-editor');
   const editorLinesStrs = codeEditors.map(codeEditor =>
@@ -366,8 +372,7 @@ function exerciseCrawler(includeConsoleOutput = false) {
     : '';
 
   const rMarkdown = [
-    exerciseTitle,
-    exercisePars,
+    !subExerciseIdx ? exerciseBeginning : '', // we don't need beginning text again if we're copying one of subexercises != the first
     exerciseInstructions,
     RCodeBlocks,
     RConsoleOutput,
@@ -376,6 +381,34 @@ function exerciseCrawler(includeConsoleOutput = false) {
     .join('\n\n');
 
   return rMarkdown;
+}
+
+function getExerciseInstructions(subExerciseBullets) {
+  if (subExerciseBullets.length > 0) {
+    const instructions = selectElements('.exercise--instructions>*')
+      .map(el => {
+        console.log(el);
+        return Array.from(el.children)
+          .map(el => {
+            console.log('child', el);
+            const textContent = el.textContent.trim();
+            if (el.nodeName === 'H4') return `### ${textContent}`;
+            if (el.nodeName === 'H5') return `#### ${textContent}`;
+            if (el.nodeName === 'UL') return HTMLListToMarkdown(el) + '\n';
+            if (el.className.includes('actions'))
+              return ''; // actions are buttons etc. -> text is irrelevant
+            else return textContent;
+          })
+          .join('\n\n');
+      })
+      .join('\n\n');
+
+    return instructions;
+  }
+
+  return selectElements('.exercise--instructions li')
+    .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
+    .join('\n');
 }
 
 function dragDropExerciseCrawler() {
@@ -536,33 +569,34 @@ function videoIframeCrawler() {
 }
 
 function HTMLListToMarkdown(ul, indentLevel = 0) {
-  const childElements = Array.from(ul.childNodes).filter(
-    el => el.nodeName !== '#text'
-  );
+  const childElements = Array.from(ul.children);
   return childElements
     .map(ulChild => {
       if (ulChild.nodeName === 'LI') {
         const liChildNodes = Array.from(ulChild.childNodes);
+        console.log(liChildNodes);
         return liChildNodes
           .map(liChild => {
             if (liChild.textContent.trim().length === 0) {
               return '';
             } else {
               if (liChild.nodeName === 'UL') {
-                return HTMLListToMarkdown(liChild, indentLevel + 1);
+                return '\n' + HTMLListToMarkdown(liChild, indentLevel + 1);
               } else {
-                return ' * ' + liChild.textContent.trim();
+                console.log(liChild.textContent);
+                return ' ' + liChild.textContent.trim();
               }
             }
           })
           .filter(str => str.trim().length > 0)
-          .join('\n');
+          .join('')
+          .replaceAll(' .', '.');
       } else {
         return ulChild.textContent.trim(); // should only be line breaks or empty text nodes
       }
     })
     .filter(str => str.length > 0)
-    .map(str => '    '.repeat(indentLevel) + str)
+    .map(str => '    '.repeat(indentLevel) + ' * ' + str)
     .join('\n');
 }
 
