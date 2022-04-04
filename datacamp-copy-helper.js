@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2
+// @version      1.0.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -311,7 +311,8 @@ function exerciseCrawler(includeConsoleOutput = false) {
     .join('\n\n');
 
   const RConsoleOutput = includeConsoleOutput
-    ? '```\n' +
+    ? 'After running the code above in the R session on DataCamp we get:\n' +
+      '```\n' +
       getTextContents('[data-cy="console-editor"]>div>div>div').join('\n') +
       '\n```'
     : '';
