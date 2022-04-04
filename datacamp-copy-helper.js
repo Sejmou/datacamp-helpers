@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -879,6 +879,10 @@ function createConsoleOutputToggleCheckbox() {
       height: 30px;
       align-items: center;
       gap: 10px;
+    }
+  
+    #${containerId}:hover, #${containerId} *:hover {
+      cursor: pointer;
     }
   `);
 
