@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.2.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -339,7 +339,10 @@ function exerciseCrawler(includeConsoleOutput = false) {
     b.className.includes('active-tab')
   );
 
-  const exerciseInstructions = getExerciseInstructions(subExerciseBullets);
+  const exerciseInstructions = getExerciseInstructions(
+    subExerciseBullets,
+    subExerciseIdx
+  );
 
   const codeEditors = selectElements('.monaco-editor');
   const editorLinesStrs = codeEditors.map(codeEditor =>
@@ -383,7 +386,7 @@ function exerciseCrawler(includeConsoleOutput = false) {
   return rMarkdown;
 }
 
-function getExerciseInstructions(subExerciseBullets) {
+function getExerciseInstructions(subExerciseBullets, subExerciseIdx = 0) {
   if (subExerciseBullets.length > 0) {
     const instructions = selectElements('.exercise--instructions>*')
       .map(el => {
@@ -392,18 +395,19 @@ function getExerciseInstructions(subExerciseBullets) {
           .map(el => {
             console.log('child', el);
             const textContent = el.textContent.trim();
-            if (el.nodeName === 'H4') return `### ${textContent}`;
-            if (el.nodeName === 'H5') return `#### ${textContent}`;
+            if (el.nodeName === 'H4') return ''; //return `### ${textContent}`; This is usually the "Question" heading - probably irrelevant for copying
+            if (el.nodeName === 'H5') return ''; //`#### ${textContent}`; This is usually "Possible answers" heading - also probably irrelevant
             if (el.nodeName === 'UL') return HTMLListToMarkdown(el) + '\n';
             if (el.className.includes('actions'))
               return ''; // actions are buttons etc. -> text is irrelevant
             else return textContent;
           })
-          .join('\n\n');
+          .filter(str => str.trim().length > 0)
+          .join('\n');
       })
-      .join('\n\n');
+      .join('\n');
 
-    return instructions;
+    return `### Subtask ${subExerciseIdx + 1}\n` + instructions;
   }
 
   return selectElements('.exercise--instructions li')
