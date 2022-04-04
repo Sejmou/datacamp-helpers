@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.1.1
+// @version      1.1.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -50,14 +50,8 @@ async function run() {
   const btn = createCopyButton();
 
   // on some pages we want to position the button differently
-  // for this, we add classes
-  if (currentPage === 'overview') {
-    btn.classList.add('overview');
-  } else if (currentPage === 'video-iframe') {
-    btn.classList.add('video-iframe');
-  } else if (currentPage === 'video') {
-    btn.classList.add('video');
-  }
+  // for this, we add a CSS class for the current page
+  btn.classList.add(currentPage);
 
   if (currentPage === 'video-iframe') {
     addSlideImageViewFeatures();
@@ -839,7 +833,7 @@ function createCopyButton() {
     right: 10px;
   }
 
-  #${btnId}.video {
+  #${btnId}.video, #${btnId}.dragdrop-exercise {
     top: 70px;
     right: 70px;
   }
