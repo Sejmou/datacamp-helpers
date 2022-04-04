@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.0.3
+// @version      1.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -16,6 +16,34 @@ function run() {
   if (currentPage === 'other') {
     // nothing interesting to copy, just return directly!
     return;
+  }
+
+  let elementsAddedToDocument = [];
+  const addToDocumentBody = el => {
+    document.body.appendChild(el);
+    elementsAddedToDocument.push(el);
+  };
+
+  const initialExercise = getURLQueryParams().ex;
+  if (initialExercise) {
+    // only reached when on an exercise page
+    const detectExerciseChange = function () {
+      const currentExercise = getURLQueryParams().ex;
+      if (currentExercise != initialExercise) {
+        console.log('current exercise: ' + currentExercise);
+        handleExerciseChange();
+      }
+    };
+
+    const detectionTimer = setInterval(detectExerciseChange, 1000); // apparently there's no event-based way to detect change in URL query
+
+    const handleExerciseChange = () => {
+      // cleanup
+      elementsAddedToDocument.forEach(el => el.remove());
+      clearInterval(detectionTimer);
+      // run script again to make sure elements relevant to new subpage are added
+      run();
+    };
   }
 
   const snackbar = createSnackbar(); // for showing messages to user
@@ -38,7 +66,7 @@ function run() {
 
   if (currentPage === 'exercise') {
     const checkboxContainer = createConsoleOutputToggleCheckbox();
-    document.body.appendChild(checkboxContainer);
+    addToDocumentBody(checkboxContainer);
 
     exerciseCrawlerFn = () => {
       const includeConsoleOutput =
@@ -69,10 +97,8 @@ function run() {
     }
   });
 
-  document.body.appendChild(btn);
-  document.body.appendChild(snackbar);
-
-  // TODO: do proper "cleanup" - or is it even necessary?
+  addToDocumentBody(btn);
+  addToDocumentBody(snackbar);
 }
 
 function getCurrentPage() {
@@ -94,11 +120,17 @@ function getCurrentPage() {
     return 'video';
   } else if (document.querySelector('.drag-and-drop-exercise')) {
     return 'dragdrop-exercise';
-  } else if (document.querySelector('main.exercise-area')) {
+  } else if (document.querySelector('.exercise--sidebar-header')) {
     return 'exercise';
   } else {
     return 'other';
   }
+}
+
+function getURLQueryParams() {
+  return new Proxy(new URLSearchParams(window.location.search), {
+    get: (searchParams, prop) => searchParams.get(prop),
+  });
 }
 
 function getTextContent(elementSelector, root = document, trim = true) {
