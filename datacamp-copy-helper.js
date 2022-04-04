@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.2.2
+// @version      1.2.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -804,7 +804,8 @@ function addSlideImageViewFeatures() {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
-    height: 85vh !important;
+    max-height: 85vh !important;
+    max-width: 100vw !important;
     display: block;
     transform: translate(-50%, -50%);
   }
