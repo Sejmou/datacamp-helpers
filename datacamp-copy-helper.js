@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.2.1
+// @version      1.2.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -370,18 +370,21 @@ function exerciseCrawler(includeConsoleOutput = false) {
   const RConsoleOutput = includeConsoleOutput
     ? 'After running the code above in the R session on DataCamp we get:\n' +
       '```\n' +
-      getTextContents('[data-cy="console-editor"]>div>div>div').join('\n') +
+      getTextContents('[data-cy="console-editor"]>div>div>div')
+        .filter((_, i, arr) => i != arr.length - 1)
+        .join('\n') +
       '\n```'
     : '';
 
-  const rMarkdown = [
-    !subExerciseIdx ? exerciseBeginning : '', // we don't need beginning text again if we're copying one of subexercises != the first
-    exerciseInstructions,
-    RCodeBlocks,
-    RConsoleOutput,
-  ]
-    .filter(str => str.length > 0)
-    .join('\n\n');
+  const rMarkdown =
+    [
+      !subExerciseIdx ? exerciseBeginning : '', // we don't need beginning text again if we're copying one of subexercises != the first
+      exerciseInstructions,
+      RCodeBlocks,
+      RConsoleOutput,
+    ]
+      .filter(str => str.length > 0)
+      .join('\n') + '\n';
 
   return rMarkdown;
 }
@@ -432,12 +435,10 @@ function dragDropExerciseCrawler() {
 
   const dragdropExerciseContent = getDragdropContent();
 
-  const rMarkdown = [
-    exerciseTitle,
-    exercisePars,
-    exerciseInstructions,
-    dragdropExerciseContent,
-  ].join('\n\n');
+  const rMarkdown =
+    exerciseTitle +
+    '\n' +
+    [exercisePars, exerciseInstructions, dragdropExerciseContent].join('\n\n');
 
   return rMarkdown;
 }
