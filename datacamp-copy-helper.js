@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.3.1
+// @version      1.3.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -406,10 +406,8 @@ function getExerciseInstructions(subExerciseBullets, subExerciseIdx = 0) {
   if (subExerciseBullets.length > 0) {
     const instructions = selectElements('.exercise--instructions>*')
       .map(el => {
-        console.log(el);
         return Array.from(el.children)
           .map(el => {
-            console.log('child', el);
             const textContent = el.textContent.trim();
             if (el.nodeName === 'H4') return ''; //return `### ${textContent}`; This is usually the "Question" heading - probably irrelevant for copying
             if (el.nodeName === 'H5') return ''; //`#### ${textContent}`; This is usually "Possible answers" heading - also probably irrelevant
@@ -600,7 +598,6 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
     .map(ulChild => {
       if (ulChild.nodeName === 'LI') {
         const liChildNodes = Array.from(ulChild.childNodes);
-        console.log(liChildNodes);
         return liChildNodes
           .map(liChild => {
             if (liChild.textContent.trim().length === 0) {
@@ -609,7 +606,6 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
               if (liChild.nodeName === 'UL') {
                 return '\n' + HTMLListToMarkdown(liChild, indentLevel + 1);
               } else {
-                console.log(liChild.textContent);
                 return ' ' + liChild.textContent.trim();
               }
             }
