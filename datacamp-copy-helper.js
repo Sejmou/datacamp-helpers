@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.3.2
+// @version      1.3.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -594,32 +594,35 @@ function videoIframeCrawler(includeConsoleOutput) {
 
 function HTMLListToMarkdown(ul, indentLevel = 0) {
   const childElements = Array.from(ul.children);
-  return childElements
-    .map(ulChild => {
-      if (ulChild.nodeName === 'LI') {
-        const liChildNodes = Array.from(ulChild.childNodes);
-        return liChildNodes
-          .map(liChild => {
-            if (liChild.textContent.trim().length === 0) {
-              return '';
-            } else {
-              if (liChild.nodeName === 'UL') {
-                return '\n' + HTMLListToMarkdown(liChild, indentLevel + 1);
+  return (
+    '\n' +
+    childElements
+      .map(ulChild => {
+        if (ulChild.nodeName === 'LI') {
+          const liChildNodes = Array.from(ulChild.childNodes);
+          return liChildNodes
+            .map(liChild => {
+              if (liChild.textContent.trim().length === 0) {
+                return '';
               } else {
-                return ' ' + liChild.textContent.trim();
+                if (liChild.nodeName === 'UL') {
+                  return HTMLListToMarkdown(liChild, indentLevel + 1);
+                } else {
+                  return ' ' + liChild.textContent.trim();
+                }
               }
-            }
-          })
-          .filter(str => str.trim().length > 0)
-          .join('')
-          .replaceAll(' .', '.');
-      } else {
-        return ulChild.textContent.trim(); // should only be line breaks or empty text nodes
-      }
-    })
-    .filter(str => str.length > 0)
-    .map(str => '    '.repeat(indentLevel) + ' * ' + str)
-    .join('\n');
+            })
+            .filter(str => str.trim().length > 0)
+            .join('')
+            .replaceAll(' .', '.');
+        } else {
+          return ulChild.textContent.trim(); // should only be line breaks or empty text nodes
+        }
+      })
+      .filter(str => str.length > 0)
+      .map(str => '    '.repeat(indentLevel) + ' * ' + str)
+      .join('\n')
+  );
 }
 
 // adapted from: https://gist.github.com/styfle/c4bba2d29e6cb9b585de72207c006af7
