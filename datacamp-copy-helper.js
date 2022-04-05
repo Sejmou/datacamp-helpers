@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5.2
+// @version      1.5.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -311,7 +311,10 @@ function HTMLTextLinksCodeToMarkdown(el) {
     }
   });
 
-  return textNodes.join(' ').replaceAll(/[)/`]\s/g, m => m[0]);
+  return textNodes
+    .join(' ')
+    .replaceAll(/[`] [,\.\)]/g, m => m[0] + m[2])
+    .replaceAll(/[\(] [`]/g, m => m[0] + m[2]);
 }
 
 function overviewCrawler() {
