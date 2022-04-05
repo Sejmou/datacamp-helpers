@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5
+// @version      1.5.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -437,7 +437,7 @@ function exerciseCrawler(includeConsoleOutput = false) {
 
   const rMarkdown =
     [
-      !subExerciseIdx ? exerciseBeginning : '', // we don't need beginning text again if we're copying one of subexercises != the first
+      subExerciseIdx <= 0 ? exerciseBeginning : '', // we don't need beginning text again if we're copying one of subexercises != the first
       exerciseInstructions,
       RCodeBlocks,
       RConsoleOutput,
