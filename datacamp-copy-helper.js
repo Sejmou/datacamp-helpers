@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.5
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -13,7 +13,8 @@
 
 // config for code exercises
 const copyRSessionCodeComments = false;
-const copyEditorCodeFromConsoleOut = true; // whether editor code reappearing in the console output should also be copied
+const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied
+const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
 
 async function run() {
   const currentPage = await getCurrentPage();
@@ -386,22 +387,49 @@ function exerciseCrawler(includeConsoleOutput = false) {
 
   let RConsoleOutput = '';
   if (includeConsoleOutput) {
+    let RConsoleOutputDivContents = getTextContents(
+      '[data-cy="console-editor"]>div>div>div'
+    );
+
+    let lastIdxOfFirstCodeLineInConsoleOut = -1;
+    RConsoleOutputDivContents.forEach((content, i) => {
+      const outputLines = content.split('\n');
+      if (outputLines[0] === editorLines[0]) {
+        lastIdxOfFirstCodeLineInConsoleOut = i;
+      }
+    });
+
+    if (lastIdxOfFirstCodeLineInConsoleOut === -1) {
+      alert(
+        'The code you wrote was not found in the console output. Did you forget to run it?'
+      );
+    }
+
+    if (copyOnlyConsoleOutOfCodeInEditor) {
+      RConsoleOutputDivContents = RConsoleOutputDivContents.slice(
+        lastIdxOfFirstCodeLineInConsoleOut
+      );
+    }
+
+    if (!copyEditorCodeFromConsoleOut) {
+      RConsoleOutputDivContents = RConsoleOutputDivContents.filter(
+        str =>
+          str.trim().length == 0 || // keep empty lines in output to make it easier to differentiate what command produced what output
+          !editorLines.includes(str.split('\n')[0])
+      );
+    }
+
+    if (!copyRSessionCodeComments) {
+      RConsoleOutputDivContents = RConsoleOutputDivContents.filter(
+        str => !str.trim().startsWith('#')
+        // Note: solution misses e.g. comments inside a single assignment to some variable that spans multiple lines - not an issue if copyEditorCodeFromConsoleOut is false
+      );
+    }
+
     RConsoleOutput =
       'After running the code above in the R session on DataCamp we get:\n' +
       '```\n' +
-      getTextContents('[data-cy="console-editor"]>div>div>div')
-        .filter(str => {
-          return (
-            copyEditorCodeFromConsoleOut ||
-            str.trim().length == 0 || // keep empty lines in output to make it easier to differentiate what command produced what output
-            !editorLines.includes(str.split('\n')[0])
-          );
-        })
-        .filter(
-          str => copyRSessionCodeComments || !str.trim().startsWith('#')
-          // Note: solution misses e.g. comments inside a single assignment to some variable that spans multiple lines - not an issue if copyEditorCodeFromConsoleOut is false
-        )
-        .filter((_, i, arr) => i != arr.length - 1) // remove last line (input for R console)
+      RConsoleOutputDivContents.filter((_, i, arr) => i != arr.length - 1) // remove last line (input for R console)
         .join('\n')
         .trim() + // trim because we don't need empty lines in beginning or end of console output
       '\n```';
