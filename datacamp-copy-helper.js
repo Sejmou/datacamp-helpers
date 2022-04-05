@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.3.4
+// @version      1.4
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -10,6 +10,10 @@
 // @downloadURL  https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // @updateURL    https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // ==/UserScript==
+
+// config for code exercises
+const copyRSessionCodeComments = false;
+const copyEditorCodeFromConsoleOut = true; // whether editor code reappearing in the console output should also be copied
 
 async function run() {
   const currentPage = await getCurrentPage();
@@ -359,36 +363,49 @@ function exerciseCrawler(includeConsoleOutput = false) {
   );
 
   const codeEditors = selectElements('.monaco-editor');
-  const editorLinesStrs = codeEditors.map(codeEditor =>
+  const editorContentStrs = codeEditors.map(codeEditor =>
     getTextContents('.view-line', codeEditor, false)
       .map(l => l.replace(/ /g, ' ')) // instead of regular white space other char (ASCII code: 160 (decimal)) is used
+      .filter(str => copyRSessionCodeComments || !str.trim().startsWith('#'))
       .filter(str => str.trim().length > 0)
       .join('\n')
   );
 
-  const RCodeBlocks = editorLinesStrs
+  const editorLines = editorContentStrs.join('\n').split('\n');
+
+  const RCodeBlocks = editorContentStrs
+    .filter(linesStr => linesStr.trim().length > 0)
     .map(linesStr => {
-      const trimmed = linesStr.trim(); // not sure if that trimming is actually necessary
-      if (trimmed.length > 0) {
-        return (
-          `\`\`\`{r${includeConsoleOutput ? ', eval=FALSE' : ''}}\n` +
-          trimmed +
-          '\n```'
-        );
-      } else {
-        return '';
-      }
+      return (
+        `\`\`\`{r${includeConsoleOutput ? ', eval=FALSE' : ''}}\n` +
+        linesStr +
+        '\n```'
+      );
     })
     .join('\n\n');
 
-  const RConsoleOutput = includeConsoleOutput
-    ? 'After running the code above in the R session on DataCamp we get:\n' +
+  let RConsoleOutput = '';
+  if (includeConsoleOutput) {
+    RConsoleOutput =
+      'After running the code above in the R session on DataCamp we get:\n' +
       '```\n' +
       getTextContents('[data-cy="console-editor"]>div>div>div')
-        .filter((_, i, arr) => i != arr.length - 1)
-        .join('\n') +
-      '\n```'
-    : '';
+        .filter(str => {
+          return (
+            copyEditorCodeFromConsoleOut ||
+            str.trim().length == 0 || // keep empty lines in output to make it easier to differentiate what command produced what output
+            !editorLines.includes(str.split('\n')[0])
+          );
+        })
+        .filter(
+          str => copyRSessionCodeComments || !str.trim().startsWith('#')
+          // Note: solution misses e.g. comments inside a single assignment to some variable that spans multiple lines - not an issue if copyEditorCodeFromConsoleOut is false
+        )
+        .filter((_, i, arr) => i != arr.length - 1) // remove last line (input for R console)
+        .join('\n')
+        .trim() + // trim because we don't need empty lines in beginning or end of console output
+      '\n```';
+  }
 
   const rMarkdown =
     [
@@ -398,7 +415,7 @@ function exerciseCrawler(includeConsoleOutput = false) {
       RConsoleOutput,
     ]
       .filter(str => str.length > 0)
-      .join('\n') + '\n';
+      .join('\n\n') + '\n';
 
   return rMarkdown;
 }
