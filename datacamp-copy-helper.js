@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.3.3
+// @version      1.3.4
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -75,6 +75,7 @@ async function run() {
     const checkboxContainer = createConsoleOutputToggleCheckbox();
     addToDocumentBody(checkboxContainer);
     checkboxContainer.classList.add('video-iframe');
+    checkboxContainer.querySelector('input').checked = true; // set true as default
 
     iFrameCrawlerFn = () => {
       const includeConsoleOutput =
