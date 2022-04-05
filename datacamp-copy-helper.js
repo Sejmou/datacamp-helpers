@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5.1
+// @version      1.5.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -311,7 +311,7 @@ function HTMLTextLinksCodeToMarkdown(el) {
     }
   });
 
-  return textNodes.join(' ');
+  return textNodes.join(' ').replaceAll(/[)/`]\s/g, m => m[0]);
 }
 
 function overviewCrawler() {
@@ -393,8 +393,14 @@ function exerciseCrawler(includeConsoleOutput = false) {
 
     let lastIdxOfFirstCodeLineInConsoleOut = -1;
     RConsoleOutputDivContents.forEach((content, i) => {
+      // goal: find last console output div whose first line starts with same line as first editor line
+      // I assume, this is the most up-to-date console output for running the code that is currently in the editor
       const outputLines = content.split('\n');
-      if (outputLines[0] === editorLines[0]) {
+      if (
+        outputLines[0].includes(editorLines[0])
+
+        // using 'includes' as if editor width becomes to small, lines can break
+      ) {
         lastIdxOfFirstCodeLineInConsoleOut = i;
       }
     });
@@ -654,7 +660,10 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
                 if (liChild.nodeName === 'UL') {
                   return HTMLListToMarkdown(liChild, indentLevel + 1);
                 } else {
-                  return ' ' + liChild.textContent.trim();
+                  const textContent = liChild.textContent;
+                  if (liChild.nodeName === 'CODE')
+                    return '`' + textContent + '`';
+                  return liChild.textContent;
                 }
               }
             })
