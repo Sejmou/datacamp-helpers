@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5.4
+// @version      1.5.5
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -703,7 +703,9 @@ function HTMLTableToMarkdown(el) {
   const headcells = selectElements('th, td', thead);
   for (let i = 0; i < headcells.length; i++) {
     const cell = headcells[i];
-    outputStr += ' **' + cell.textContent.trim() + '** | ';
+    const cellText = cell.textContent.trim();
+    // header cell text should always be bold
+    outputStr += (cellText.length > 0 ? ' **' + cellText + '** ' : '') + '| ';
   }
 
   outputStr += '\n';
@@ -714,15 +716,23 @@ function HTMLTableToMarkdown(el) {
 
   outputStr += '|\n';
 
-  const tbody = el.querySelector('tbody');
-  const trs = tbody.querySelectorAll('tr');
+  const tbody = selectSingleElement('tbody', el);
+  const trs = selectElements('tr', tbody);
   for (let i = 0; i < trs.length; i++) {
     outputStr += '| ';
-    const tr = trs.item(i);
-    const tds = tr.querySelectorAll('td');
+    const tr = trs[i];
+    const tds = selectElements('td', tr);
     for (let j = 0; j < tds.length; j++) {
-      const td = tds.item(j);
-      outputStr += td.textContent.trim() + ' | ';
+      const td = tds[j];
+      const childNodes = Array.from(td.childNodes);
+      const cellText = childNodes
+        .map(node => {
+          const textContent = node.textContent.trim();
+          if (node.nodeName === 'STRONG') return ` **${textContent}** `;
+          return textContent;
+        })
+        .join('');
+      outputStr += cellText + ' | ';
     }
     outputStr += '\n';
   }
