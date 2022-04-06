@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5.6
+// @version      1.5.7
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -367,10 +367,20 @@ function exerciseCrawler(includeConsoleOutput = false) {
   );
 
   const codeEditors = selectElements('.monaco-editor');
+
+  const codeCommentLines = [];
+
   const editorContentStrs = codeEditors.map(codeEditor =>
     getTextContents('.view-line', codeEditor, false)
       .map(l => l.replace(/ /g, ' ')) // instead of regular white space other char (ASCII code: 160 (decimal)) is used
-      .filter(str => copyRSessionCodeComments || !str.trim().startsWith('#'))
+      .filter(str => {
+        const trimmed = str.trim();
+        if (trimmed.startsWith('#')) {
+          codeCommentLines.push(trimmed);
+          return copyRSessionCodeComments;
+        }
+        return true;
+      })
       .filter(str => str.trim().length > 0)
       .join('\n')
   );
@@ -430,7 +440,7 @@ function exerciseCrawler(includeConsoleOutput = false) {
 
     if (!copyRSessionCodeComments) {
       RConsoleOutputDivContents = RConsoleOutputDivContents.filter(
-        str => !str.trim().startsWith('#')
+        str => !codeCommentLines.find(l => l === str.trim())
         // Note: solution misses e.g. comments inside a single assignment to some variable that spans multiple lines - not an issue if copyEditorCodeFromConsoleOut is false
       );
     }
