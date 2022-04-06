@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5.5
+// @version      1.5.6
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -729,6 +729,7 @@ function HTMLTableToMarkdown(el) {
         .map(node => {
           const textContent = node.textContent.trim();
           if (node.nodeName === 'STRONG') return ` **${textContent}** `;
+          if (node.nodeName === 'CODE') return `\`${textContent}\``;
           return textContent;
         })
         .join('');
@@ -737,7 +738,9 @@ function HTMLTableToMarkdown(el) {
     outputStr += '\n';
   }
 
-  return outputStr;
+  // adding empty line in the beginning to make sure markdown table is parsed correctly
+  // e.g. if it follows heading directly, without empty line, Markdown output is incorrect (table is interpreted as part of the heading)
+  return '\n' + outputStr;
 }
 
 function addSlideImageViewFeatures() {
