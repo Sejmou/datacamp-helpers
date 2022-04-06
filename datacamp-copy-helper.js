@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5.3
+// @version      1.5.4
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -641,8 +641,21 @@ function videoIframeCrawler(includeConsoleOutput) {
           .join('');
       }
     })
-    .filter((slide, i, slides) => slide !== slides[i - 1])
-    .join('\n');
+    .filter((slide, i, slides) => slide !== slides[i - 1]) // remove slide pages that are exactly the same
+    .map((slide, i, slides) => {
+      const prevLines = slides[i - 1]?.split('\n');
+      if (!prevLines) return slide;
+
+      const currLines = slide.split('\n');
+      // first line of each slide's markdown is the heading
+      const headingsIdentical = prevLines[0] === currLines[0];
+
+      if (headingsIdentical) {
+        return currLines.slice(1).join('\n');
+      }
+      return slide;
+    })
+    .join('\n\n');
 
   return `${slideContents}`;
 }
