@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5.7
+// @version      1.5.8
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -135,25 +135,29 @@ async function getCurrentPage() {
     } else if (document.querySelector('.exercise--sidebar-header')) {
       resolve('exercise');
     } else if (
-      document.querySelector('main.exercise-area')
+      document.querySelector('[data-cy*="video-exercise"]')
       // video already loaded
     ) {
       resolve('video');
     } else if (
       document.body.className.includes('vsc-initialized')
-      // video not yet loaded
+      // page content not yet loaded
     ) {
-      return new Promise(resolve => {
-        new MutationObserver((_, obs) => {
-          if (document.querySelector('main.exercise-area')) {
-            resolve('video');
-          } else {
-            resolve('other');
-          }
+      // wait for relevant DOM elments to appear (as long as we're on the same exercise page)
+      const initialExercise = getURLQueryParams().ex;
+      new MutationObserver((_, obs) => {
+        if (getURLQueryParams().ex != initialExercise) {
           obs.disconnect();
-        }).observe(document.body, {
-          childList: true,
-        });
+          return;
+        }
+        if (document.querySelector('[data-cy*="video-exercise"]')) {
+          resolve('video');
+        } else if (document.querySelector('.drag-and-drop-exercise')) {
+          resolve('dragdrop-exercise');
+        }
+      }).observe(document.body, {
+        childList: true,
+        subtree: true,
       });
     } else {
       resolve('other');
