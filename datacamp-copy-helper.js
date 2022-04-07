@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.6.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -143,17 +143,14 @@ async function getCurrentPage() {
       document.body.className.includes('vsc-initialized')
       // page content not yet loaded
     ) {
-      // wait for relevant DOM elments to appear (as long as we're on the same exercise page)
-      const initialExercise = getURLQueryParams().ex;
+      // wait for relevant DOM elments to appear
       new MutationObserver((_, obs) => {
-        if (getURLQueryParams().ex != initialExercise) {
-          obs.disconnect();
-          return;
-        }
         if (document.querySelector('[data-cy*="video-exercise"]')) {
           resolve('video');
+          obs.disconnect();
         } else if (document.querySelector('.drag-and-drop-exercise')) {
           resolve('dragdrop-exercise');
+          obs.disconnect();
         }
       }).observe(document.body, {
         childList: true,
