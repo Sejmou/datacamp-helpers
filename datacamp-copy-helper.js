@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.6.3
+// @version      1.6.4
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -400,7 +400,9 @@ function exerciseCrawler(includeConsoleOutput = false) {
     .join('\n\n');
 
   let RConsoleOutput = '';
-  if (includeConsoleOutput) {
+
+  // only include console output if there's code in the editor and console output should be included!
+  if (RCodeBlocks && includeConsoleOutput) {
     let RConsoleOutputDivContents = getTextContents(
       '[data-cy="console-editor"]>div>div>div'
     );
