@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.5.8
+// @version      1.6
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -93,7 +93,7 @@ async function run() {
     ['overview', overviewCrawler],
     ['exercise', exerciseCrawlerFn],
     ['dragdrop-exercise', dragDropExerciseCrawler],
-    ['video', videoPageCrawler],
+    [('video', videoPageCrawler)],
     ['video-iframe', iFrameCrawlerFn],
   ]);
 
@@ -513,7 +513,11 @@ function dragDropExerciseCrawler() {
     .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
     .join('\n');
 
-  const dragdropExerciseContent = getDragdropContent();
+  const dragdropExerciseContent = document.querySelector(
+    '[data-cy*="order-exercise"]'
+  )
+    ? getDragIntoOrderContent()
+    : getDragdropContent();
 
   const rMarkdown =
     exerciseTitle +
@@ -594,6 +598,15 @@ function twoDArrayFromColArrays(...colArrays) {
   }
 
   return output;
+}
+
+function getDragIntoOrderContent() {
+  return (
+    'The correct order is:\n\n' +
+    getTextContents('[data-cy*="droppable-area"]>div')
+      .map((str, i) => ` ${i + 1}. ${str}`)
+      .join('\n')
+  );
 }
 
 function videoIframeCrawler(includeConsoleOutput) {
