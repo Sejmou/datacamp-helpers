@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.6.1
+// @version      1.6.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -93,7 +93,7 @@ async function run() {
     ['overview', overviewCrawler],
     ['exercise', exerciseCrawlerFn],
     ['dragdrop-exercise', dragDropExerciseCrawler],
-    [('video', videoPageCrawler)],
+    ['video', videoPageCrawler],
     ['video-iframe', iFrameCrawlerFn],
   ]);
 
