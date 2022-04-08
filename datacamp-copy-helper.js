@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.6.4
+// @version      1.6.5
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
 // @author       You
 // @include      *.datacamp.com*
@@ -15,6 +15,7 @@
 const copyRSessionCodeComments = false;
 const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
+const includeSubExerciseSubheadings = false; // whether heading (Subtask 1, Subtask 2 etc.) should be included when copying a sub-exercise of an exercise with sub-exercises
 
 async function run() {
   const currentPage = await getCurrentPage();
@@ -489,7 +490,9 @@ function getExerciseInstructions(subExerciseBullets, subExerciseIdx = 0) {
       })
       .join('\n');
 
-    return `### Subtask ${subExerciseIdx + 1}\n` + instructions;
+    return includeSubExerciseSubheadings
+      ? `### Subtask ${subExerciseIdx + 1}\n`
+      : '' + instructions;
   }
 
   return selectElements('.exercise--instructions li')
