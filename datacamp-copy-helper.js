@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.6.5
-// @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + Insert)
+// @version      1.7
+// @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + C)
 // @author       You
 // @include      *.datacamp.com*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=datacamp.com
@@ -106,11 +106,22 @@ async function run() {
   };
   btn.addEventListener('click', copyFn);
 
-  document.addEventListener('keydown', event => {
-    if (event.ctrlKey && event.shiftKey && event.key === 'Insert') {
-      copyFn();
-    }
-  });
+  document.addEventListener(
+    'keydown',
+    event => {
+      if (
+        event.ctrlKey &&
+        !event.shiftKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        event.code === 'KeyC'
+      ) {
+        copyFn();
+        event.preventDefault();
+      }
+    },
+    { capture: true }
+  );
 
   addToDocumentBody(btn);
   addToDocumentBody(snackbar);
