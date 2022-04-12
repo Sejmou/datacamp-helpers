@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.7.5
+// @version      1.7.7
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -435,22 +435,36 @@ function exerciseCrawler(includeConsoleOutput = false) {
     );
 
     let lastIdxOfFirstCodeLineInConsoleOut = -1;
+    const unindentedEditorLines = editorLines
+      .filter(l => !/^\s/.test(l))
+      .filter(l => l.trim().length > 0); // get all lines not starting with whitespace
+    let unindentedEditorLinesNotInOutput = unindentedEditorLines;
+
     RConsoleOutputDivContents.forEach((content, i) => {
-      // goal: find last console output div whose first line starts with same line as first editor line
-      // I assume, this is the most up-to-date console output for running the code that is currently in the editor
+      // goals:
+      // 1. find last console output div whose first line starts with same line as first editor line - only code from this line onwards is relevant when copying
+      // 2. verify that all unindented editor lines are included in the code output lines as well - if not, code output for at least a part of the code in the code editor has not been generated -> code wasn't run!
       const outputLines = content.split('\n');
       if (
         outputLines[0].includes(editorLines[0])
-
         // using 'includes' as if editor width becomes to small, lines can break
       ) {
         lastIdxOfFirstCodeLineInConsoleOut = i;
       }
+
+      unindentedEditorLinesNotInOutput =
+        unindentedEditorLinesNotInOutput.filter(
+          l => !outputLines[0].includes(l)
+        );
     });
 
     if (lastIdxOfFirstCodeLineInConsoleOut === -1) {
       showWarning(
         'The code you wrote was not found in the console output. Did you forget to run it?'
+      );
+    } else if (unindentedEditorLines.length > 0) {
+      showWarning(
+        'Some parts of the code you wrote were not found in the console output. Did you forget to run it?'
       );
     }
 
