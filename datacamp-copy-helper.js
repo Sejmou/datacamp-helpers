@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.7
+// @version      1.7.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -12,6 +12,7 @@
 // ==/UserScript==
 
 // config for code exercises
+const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
 const copyRSessionCodeComments = false;
 const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
@@ -1093,6 +1094,7 @@ function createConsoleOutputToggleCheckbox() {
   checkbox.type = 'checkbox';
   const checkboxId = 'datacamp-copy-helper-checkbox';
   checkbox.id = checkboxId;
+  checkbox.checked = copyCodeOutputCheckboxInitState;
 
   const label = document.createElement('label');
   label.htmlFor = checkboxId;
