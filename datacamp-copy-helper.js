@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.8
+// @version      1.9
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -110,6 +110,7 @@ async function run() {
     ['dragdrop-exercise', dragDropExerciseCrawler],
     ['video', videoPageCrawler],
     ['video-iframe', iFrameCrawlerFn],
+    ['mc-exercise', multipleChoiceExerciseCrawler],
   ]);
 
   const copyFn = () => {
@@ -162,14 +163,18 @@ async function getCurrentPage() {
     } else if (document.querySelector('.exercise--sidebar-header')) {
       resolve('exercise');
     } else if (
+      document.querySelector(
+        '[class*="dc-panel dc-u-h-100pc exercise__sidebar"]'
+      )
+    ) {
+      resolve('mc-exercise');
+    } else if (
       document.querySelector('[data-cy*="video-exercise"]')
       // video already loaded
     ) {
       resolve('video');
-    } else if (
-      document.body.className.includes('vsc-initialized')
-      // page content not yet loaded
-    ) {
+    } else {
+      // page content not yet loaded{
       // wait for relevant DOM elments to appear
       new MutationObserver((_, obs) => {
         if (document.querySelector('[data-cy*="video-exercise"]')) {
@@ -178,13 +183,18 @@ async function getCurrentPage() {
         } else if (document.querySelector('.drag-and-drop-exercise')) {
           resolve('dragdrop-exercise');
           obs.disconnect();
+        } else if (
+          document.querySelector(
+            '[class*="dc-panel dc-u-h-100pc exercise__sidebar"]'
+          )
+        ) {
+          resolve('mc-exercise');
+          obs.disconnect();
         }
       }).observe(document.body, {
         childList: true,
         subtree: true,
       });
-    } else {
-      resolve('other');
     }
   });
 }
@@ -580,6 +590,18 @@ function dragDropExerciseCrawler() {
     [exercisePars, exerciseInstructions, dragdropExerciseContent].join('\n\n');
 
   return rMarkdown;
+}
+
+function multipleChoiceExerciseCrawler() {
+  const heading = getTextContents('h1');
+
+  const content = selectElements(
+    '[class*="le-shared-sticky-container"]>div>div>div>*'
+  )
+    .map(el => HTMLTextLinksCodeToMarkdown(el))
+    .join('\n\n');
+
+  return `## ${heading}\n${content}`;
 }
 
 function videoPageCrawler() {
@@ -1059,7 +1081,7 @@ function createCopyButton() {
     right: 10px;
   }
 
-  #${btnId}.video, #${btnId}.dragdrop-exercise {
+  #${btnId}.video, #${btnId}.dragdrop-exercise, #${btnId}.mc-exercise {
     top: 70px;
     right: 70px;
   }
