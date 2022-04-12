@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.9
+// @version      1.9.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -22,6 +22,7 @@ const includeSubExerciseSubheadings = false; // whether heading (Subtask 1, Subt
 const warningSnackbarId = 'copy-helper-warning-snackbar';
 
 async function run() {
+  console.log('run called');
   const currentPage = await getCurrentPage();
   if (currentPage === 'other') {
     // nothing interesting to copy, just return directly!
@@ -49,9 +50,9 @@ async function run() {
     const handleExerciseChange = () => {
       // cleanup
       elementsAddedToDocument.forEach(el => el.remove());
-      clearInterval(detectionTimer);
       // run script again to make sure elements relevant to new subpage are added
       run();
+      clearInterval(detectionTimer); // after script was run on new page, remove exercise page change detection timer
     };
   }
 
