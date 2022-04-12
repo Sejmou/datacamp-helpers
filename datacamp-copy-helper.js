@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.7.2
+// @version      1.7.5
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -17,6 +17,9 @@ const copyRSessionCodeComments = false;
 const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
 const includeSubExerciseSubheadings = false; // whether heading (Subtask 1, Subtask 2 etc.) should be included when copying a sub-exercise of an exercise with sub-exercises
+
+// TODO: remove this global const if/when refactoring the codebase
+const warningSnackbarId = 'copy-helper-warning-snackbar';
 
 async function run() {
   const currentPage = await getCurrentPage();
@@ -52,7 +55,17 @@ async function run() {
     };
   }
 
-  const snackbar = createSnackbar(); // for showing messages to user
+  const copyInfoSnackbarId = 'copy-helper-info-snackbar';
+  const copyInfoSnackbar = createSnackbar(copyInfoSnackbarId); // shows up when content is copied to clipboard
+  const warningSnackbar = createSnackbar(
+    warningSnackbarId,
+    {
+      top: '10%',
+      left: '50%',
+    },
+    'yellow',
+    5
+  );
 
   const btn = createCopyButton();
 
@@ -103,7 +116,7 @@ async function run() {
     const pageCrawler = pageCrawlers.get(currentPage);
     const clipboardContent = pageCrawler();
     GM.setClipboard(clipboardContent);
-    showSnackbar('Copied R markdown to clipboard!');
+    showSnackbar(copyInfoSnackbarId, 'Copied R markdown to clipboard!');
   };
   btn.addEventListener('click', copyFn);
 
@@ -125,7 +138,8 @@ async function run() {
   );
 
   addToDocumentBody(btn);
-  addToDocumentBody(snackbar);
+  addToDocumentBody(copyInfoSnackbar);
+  addToDocumentBody(warningSnackbar);
 }
 
 async function getCurrentPage() {
@@ -435,7 +449,7 @@ function exerciseCrawler(includeConsoleOutput = false) {
     });
 
     if (lastIdxOfFirstCodeLineInConsoleOut === -1) {
-      alert(
+      showWarning(
         'The code you wrote was not found in the console output. Did you forget to run it?'
       );
     }
@@ -1036,57 +1050,78 @@ function createButton(text, id = null, className = null) {
   return btn;
 }
 
-// copied from https://www.w3schools.com/howto/howto_js_snackbar.asp
-function createSnackbar() {
-  const snackbarId = 'copy-helper-snackbar';
+function createSnackbar(
+  id,
+  pos = { top: '50%', left: '50%' },
+  textColor = 'white',
+  animationDuration = 3
+) {
+  const posCss = createObjWithTruthyValuesForProps(
+    ['top', 'right', 'bottom', 'left'],
+    pos
+  );
 
   addStyle(`
-  #${snackbarId} {
+  #${id} {
     display: none;
     background-color: #333;
-    color: #fff;
+    color: ${textColor};
     text-align: center;
     border-radius: 2px;
     padding: 16px;
     position: fixed;
     z-index: 9999;
-    left: 50%;
-    top: 50%;
+    ${objToCssPropsAndValsStr(posCss)}
     transform: translate(-50%, -50%);
   }
   
-  #${snackbarId}.visible {
-    animation: fade-in-and-out 3s forwards;
+  #${id}.visible {
+    /* https://stackoverflow.com/a/49546937/13727176 */
+    animation-fill-mode: forwards;
+    animation-name: fade-in, fade-out;
+    animation-delay: 0s, ${animationDuration - 0.25}s;
+    animation-duration: 0.25s; /* same for both */
     display: flex;
   }
   
-  @keyframes fade-in-and-out {
-    0%, 100% {
+  @keyframes fade-in {
+    from {
       opacity: 0;
     }
-    15%, 85% {
+    to {
       opacity: 0.9;
+    }
+  }
+
+  @keyframes fade-out {
+    to {
+      opacity: 0;
     }
   }
 
   `);
 
   const snackbar = document.createElement('div');
-  snackbar.id = snackbarId;
+  snackbar.id = id;
 
   return snackbar;
 }
 
-function showSnackbar(text) {
-  // Get the snackbar DIV
-  const snackbar = document.getElementById('copy-helper-snackbar');
+function showWarning(msg) {
+  showSnackbar(warningSnackbarId, `Warning: ${msg}`);
+}
 
-  snackbar.classList.add('visible');
-  snackbar.innerText = text;
+function showSnackbar(id, text) {
+  const snackbar = document?.getElementById(id);
+  snackbar.remove();
+  document.body.appendChild(snackbar);
 
-  setTimeout(function () {
-    snackbar.classList.remove('visible');
-  }, 3000);
+  if (snackbar) {
+    snackbar.innerText = text;
+    snackbar.classList.add('visible');
+  } else {
+    console.warn('Snackbar with ID', id, 'not found!');
+  }
 }
 
 function createConsoleOutputToggleCheckbox() {
@@ -1133,6 +1168,23 @@ function createConsoleOutputToggleCheckbox() {
   `);
 
   return container;
+}
+
+// creates new object from inputObj with only those props that are in the given array of props and have a truthy value in inputObj
+function createObjWithTruthyValuesForProps(props, inputObj) {
+  return props.reduce((prev, propName) => {
+    const propVal = inputObj[propName];
+    if (propVal) {
+      return { ...prev, [propName]: propVal };
+    }
+    return prev;
+  }, {});
+}
+
+function objToCssPropsAndValsStr(obj) {
+  return Object.entries(obj)
+    .map(([prop, val]) => `${prop}: ${val};`)
+    .join('\n');
 }
 
 window.addEventListener('load', run, { once: true });
