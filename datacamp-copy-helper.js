@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.7.7
-// @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + C)
+// @version      1.8
+// @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=datacamp.com
@@ -125,7 +125,7 @@ async function run() {
     event => {
       if (
         event.ctrlKey &&
-        !event.shiftKey &&
+        event.shiftKey &&
         !event.metaKey &&
         !event.altKey &&
         event.code === 'KeyC'
@@ -299,6 +299,10 @@ function replaceAllExceptLast(str, search, replace) {
     );
 }
 
+function startsWithWhitespace(str) {
+  return /^\s/.test(str);
+}
+
 function HTMLTextLinksCodeToMarkdown(el) {
   const childNodes = Array.from(el.childNodes);
   if (el.nodeName === 'PRE') {
@@ -434,43 +438,52 @@ function exerciseCrawler(includeConsoleOutput = false) {
       '[data-cy="console-editor"]>div>div>div'
     );
 
-    let lastIdxOfFirstCodeLineInConsoleOut = -1;
-    const unindentedEditorLines = editorLines
-      .filter(l => !/^\s/.test(l))
-      .filter(l => l.trim().length > 0); // get all lines not starting with whitespace
-    let unindentedEditorLinesNotInOutput = unindentedEditorLines;
+    // goal: Find index of last console div that is relevant for copying; it should satisfy the following conditions:
+    // 1. content is identical to the beginning of the code in the editor (if whitespace and comments are removed in both) - only code from this line onwards can be relevant
+    // 2. all editor lines should be included in the code output lines
+    let idxOfDivMarkingStartOfLastCodeOutput = -1; // -1 indicates "not found"
 
-    RConsoleOutputDivContents.forEach((content, i) => {
-      // goals:
-      // 1. find last console output div whose first line starts with same line as first editor line - only code from this line onwards is relevant when copying
-      // 2. verify that all unindented editor lines are included in the code output lines as well - if not, code output for at least a part of the code in the code editor has not been generated -> code wasn't run!
-      const outputLines = content.split('\n');
-      if (
-        outputLines[0].includes(editorLines[0])
-        // using 'includes' as if editor width becomes to small, lines can break
-      ) {
-        lastIdxOfFirstCodeLineInConsoleOut = i;
-      }
+    const coutDivContsNoWhitespaceOrComments = RConsoleOutputDivContents.map(
+      content =>
+        content
+          .split('\n')
+          .map(l => l.trim())
+          .filter(l => !l.startsWith('#'))
+          .map(l => l.replace(/ /g, ''))
+          .join('')
+    );
 
-      unindentedEditorLinesNotInOutput =
-        unindentedEditorLinesNotInOutput.filter(
-          l => !outputLines[0].includes(l)
+    const editorLinesStrNoWhitespaceOrComments = editorLines
+      .map(l => l.trim())
+      .filter(l => !l.startsWith('#'))
+      .map(l => l.replace(/ /g, ''))
+      .join('');
+
+    let remainingEditorCode = editorLinesStrNoWhitespaceOrComments;
+    for (let i = coutDivContsNoWhitespaceOrComments.length - 1; i >= 0; i--) {
+      const content = coutDivContsNoWhitespaceOrComments[i];
+      if (!content) continue; // empty lines are possible!
+      if (remainingEditorCode.endsWith(content)) {
+        remainingEditorCode = remainingEditorCode.substring(
+          0,
+          remainingEditorCode.lastIndexOf(content)
         );
-    });
+        if (!remainingEditorCode) {
+          idxOfDivMarkingStartOfLastCodeOutput = i;
+          break;
+        }
+      }
+    }
 
-    if (lastIdxOfFirstCodeLineInConsoleOut === -1) {
+    if (idxOfDivMarkingStartOfLastCodeOutput === -1) {
       showWarning(
         'The code you wrote was not found in the console output. Did you forget to run it?'
-      );
-    } else if (unindentedEditorLines.length > 0) {
-      showWarning(
-        'Some parts of the code you wrote were not found in the console output. Did you forget to run it?'
       );
     }
 
     if (copyOnlyConsoleOutOfCodeInEditor) {
       RConsoleOutputDivContents = RConsoleOutputDivContents.slice(
-        lastIdxOfFirstCodeLineInConsoleOut
+        idxOfDivMarkingStartOfLastCodeOutput
       );
     }
 
