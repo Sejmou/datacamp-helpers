@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.9.1
+// @version      1.9.5
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -17,12 +17,13 @@ const copyRSessionCodeComments = false;
 const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
 const includeSubExerciseSubheadings = false; // whether heading (Subtask 1, Subtask 2 etc.) should be included when copying a sub-exercise of an exercise with sub-exercises
+const limitMaxLinesPerConsoleOut = true; // whether the maximum number of lines included when copying a single "thing" printed to the console should be limited when copying
+const maxLinesPerConsoleOut = 50; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
 
 // TODO: remove this global const if/when refactoring the codebase
 const warningSnackbarId = 'copy-helper-warning-snackbar';
 
 async function run() {
-  console.log('run called');
   const currentPage = await getCurrentPage();
   if (currentPage === 'other') {
     // nothing interesting to copy, just return directly!
@@ -441,11 +442,11 @@ function exerciseCrawler(includeConsoleOutput = false) {
     })
     .join('\n\n');
 
-  let RConsoleOutput = '';
+  let RConsoleOutputCodeBlock = '';
 
   // only include console output if there's code in the editor and console output should be included!
   if (RCodeBlocks && includeConsoleOutput) {
-    let RConsoleOutputDivContents = getTextContents(
+    let RConsoleOutDivContents = getTextContents(
       '[data-cy="console-editor"]>div>div>div'
     );
 
@@ -454,7 +455,7 @@ function exerciseCrawler(includeConsoleOutput = false) {
     // 2. all editor lines should be included in the code output lines
     let idxOfDivMarkingStartOfLastCodeOutput = -1; // -1 indicates "not found"
 
-    const coutDivContsNoWhitespaceOrComments = RConsoleOutputDivContents.map(
+    const coutDivContsNoWhitespaceOrComments = RConsoleOutDivContents.map(
       content =>
         content
           .split('\n')
@@ -493,13 +494,13 @@ function exerciseCrawler(includeConsoleOutput = false) {
     }
 
     if (copyOnlyConsoleOutOfCodeInEditor) {
-      RConsoleOutputDivContents = RConsoleOutputDivContents.slice(
+      RConsoleOutDivContents = RConsoleOutDivContents.slice(
         idxOfDivMarkingStartOfLastCodeOutput
       );
     }
 
     if (!copyEditorCodeFromConsoleOut) {
-      RConsoleOutputDivContents = RConsoleOutputDivContents.filter(
+      RConsoleOutDivContents = RConsoleOutDivContents.filter(
         str =>
           str.trim().length == 0 || // keep empty lines in output to make it easier to differentiate what command produced what output
           !editorLines.includes(str.split('\n')[0])
@@ -507,18 +508,32 @@ function exerciseCrawler(includeConsoleOutput = false) {
     }
 
     if (!copyRSessionCodeComments) {
-      RConsoleOutputDivContents = RConsoleOutputDivContents.filter(
+      RConsoleOutDivContents = RConsoleOutDivContents.filter(
+        // Note: if copyEditorCodeFromConsoleOut is true, this solution misses e.g. comments inside a single assignment to some variable that spans multiple lines
         str => !codeCommentLines.find(l => l === str.trim())
-        // Note: solution misses e.g. comments inside a single assignment to some variable that spans multiple lines - not an issue if copyEditorCodeFromConsoleOut is false
       );
     }
 
-    RConsoleOutput =
+    const RConsoleOut = RConsoleOutDivContents.map(divLinesStr => {
+      if (!limitMaxLinesPerConsoleOut) {
+        return divLinesStr;
+      }
+      const lines = divLinesStr.split('\n');
+      const truncatedLines = lines.slice(0, maxLinesPerConsoleOut);
+      console.log(truncatedLines);
+      return truncatedLines.join('\n');
+    })
+      .filter(
+        // remove last div container content == line where new code could be entered into console (usually just ">") -> irrelevant!
+        (_, i, arr) => i != arr.length - 1
+      )
+      .join('\n')
+      .trim(); // trim because we don't need empty lines in beginning or end of console output
+
+    RConsoleOutputCodeBlock =
       'After running the code above in the R session on DataCamp we get:\n' +
       '```\n' +
-      RConsoleOutputDivContents.filter((_, i, arr) => i != arr.length - 1) // remove last line (input for R console)
-        .join('\n')
-        .trim() + // trim because we don't need empty lines in beginning or end of console output
+      RConsoleOut +
       '\n```';
   }
 
@@ -527,7 +542,7 @@ function exerciseCrawler(includeConsoleOutput = false) {
       subExerciseIdx <= 0 ? exerciseBeginning : '', // we don't need beginning text again if we're copying one of subexercises != the first
       exerciseInstructions,
       RCodeBlocks,
-      RConsoleOutput,
+      RConsoleOutputCodeBlock,
     ]
       .filter(str => str.length > 0)
       .join('\n\n') + '\n';
