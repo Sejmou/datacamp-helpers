@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      1.9.5
+// @version      2.0
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -10,6 +10,9 @@
 // @downloadURL  https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // @updateURL    https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // ==/UserScript==
+
+// general config
+const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it (if on some exercise page)
 
 // config for code exercises
 const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
@@ -115,9 +118,12 @@ async function run() {
     ['mc-exercise', multipleChoiceExerciseCrawler],
   ]);
 
-  const copyFn = () => {
+  const copyFn = async () => {
     const pageCrawler = pageCrawlers.get(currentPage);
-    const clipboardContent = pageCrawler();
+    if (submitAnswerOnCopy) {
+      submitAnswer();
+    }
+    const clipboardContent = await pageCrawler();
     GM.setClipboard(clipboardContent);
     showSnackbar(copyInfoSnackbarId, 'Copied R markdown to clipboard!');
   };
@@ -154,29 +160,26 @@ async function getCurrentPage() {
 
   // We need to make everything async because of the video page
   // we cannot be sure that we're looking at the video page until the document body is modified and a certain element becomes available
-
-  return new Promise(resolve => {
-    if (document.body.className.includes('js-application')) {
-      resolve('overview');
-    } else if (document.querySelector('.slides')) {
-      resolve('video-iframe');
-    } else if (document.querySelector('.drag-and-drop-exercise')) {
-      resolve('dragdrop-exercise');
-    } else if (document.querySelector('.exercise--sidebar-header')) {
-      resolve('exercise');
-    } else if (
-      document.querySelector(
-        '[class*="dc-panel dc-u-h-100pc exercise__sidebar"]'
-      )
-    ) {
-      resolve('mc-exercise');
-    } else if (
-      document.querySelector('[data-cy*="video-exercise"]')
-      // video already loaded
-    ) {
-      resolve('video');
-    } else {
-      // page content not yet loaded{
+  if (document.body.className.includes('js-application')) {
+    return 'overview';
+  } else if (document.querySelector('.slides')) {
+    return 'video-iframe';
+  } else if (document.querySelector('.drag-and-drop-exercise')) {
+    return 'dragdrop-exercise';
+  } else if (document.querySelector('.exercise--sidebar-header')) {
+    return 'exercise';
+  } else if (
+    document.querySelector('[class*="dc-panel dc-u-h-100pc exercise__sidebar"]')
+  ) {
+    return 'mc-exercise';
+  } else if (
+    document.querySelector('[data-cy*="video-exercise"]')
+    // video already loaded
+  ) {
+    return 'video';
+  } else {
+    return new Promise(resolve => {
+      // page content not yet loaded
       // wait for relevant DOM elments to appear
       new MutationObserver((_, obs) => {
         if (document.querySelector('[data-cy*="video-exercise"]')) {
@@ -197,8 +200,59 @@ async function getCurrentPage() {
         childList: true,
         subtree: true,
       });
-    }
-  });
+    });
+  }
+}
+
+function submitAnswer() {
+  const kbEvtInit = {
+    key: 'Enter',
+    code: 'Enter',
+    location: 0,
+    ctrlKey: true,
+    shiftKey: true,
+    altKey: false,
+    metaKey: false,
+    repeat: false,
+    isComposing: false,
+    charCode: 0,
+    keyCode: 13,
+    which: 13,
+    detail: 0,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+  };
+  const keyboardEvent = new KeyboardEvent('keydown', kbEvtInit);
+
+  const activeElement = document.activeElement;
+  document.body.focus();
+  document.body.dispatchEvent(keyboardEvent);
+  activeElement.focus();
+}
+
+async function answerSubmitted() {
+  const consoleWrapper = document.querySelector('.console--wrapper');
+  if (consoleWrapper) {
+    return new Promise(resolve => {
+      const obs = new MutationObserver((recs, obs) =>
+        recs.forEach(r => {
+          const finalLine = Array.from(r.addedNodes).find(el =>
+            el.className.includes('view-line')
+          );
+          if (finalLine) {
+            resolve();
+            obs.disconnect();
+          }
+        })
+      );
+
+      obs.observe(consoleWrapper, {
+        childList: true,
+        subtree: true,
+      });
+    });
+  }
 }
 
 function getURLQueryParams() {
@@ -391,7 +445,7 @@ ${chapters}
 `;
 }
 
-function exerciseCrawler(includeConsoleOutput = false) {
+async function exerciseCrawler(includeConsoleOutput = false) {
   const exerciseTitle = `## ${getTextContent('.exercise--title')}`;
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
@@ -446,6 +500,8 @@ function exerciseCrawler(includeConsoleOutput = false) {
 
   // only include console output if there's code in the editor and console output should be included!
   if (RCodeBlocks && includeConsoleOutput) {
+    await answerSubmitted();
+
     let RConsoleOutDivContents = getTextContents(
       '[data-cy="console-editor"]>div>div>div'
     );
@@ -520,7 +576,6 @@ function exerciseCrawler(includeConsoleOutput = false) {
       }
       const lines = divLinesStr.split('\n');
       const truncatedLines = lines.slice(0, maxLinesPerConsoleOut);
-      console.log(truncatedLines);
       return truncatedLines.join('\n');
     })
       .filter(
