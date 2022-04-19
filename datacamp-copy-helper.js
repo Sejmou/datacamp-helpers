@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      2.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -11,17 +11,15 @@
 // @updateURL    https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // ==/UserScript==
 
-// general config
-const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it (if on some exercise page)
-
 // config for code exercises
 const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
 const copyRSessionCodeComments = false;
 const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
-const includeSubExerciseSubheadings = false; // whether heading (Subtask 1, Subtask 2 etc.) should be included when copying a sub-exercise of an exercise with sub-exercises
 const limitMaxLinesPerConsoleOut = true; // whether the maximum number of lines included when copying a single "thing" printed to the console should be limited when copying
 const maxLinesPerConsoleOut = 50; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
+const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
+const pasteSubExercisesTogether = true; // whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
 
 // TODO: remove this global const if/when refactoring the codebase
 const warningSnackbarId = 'copy-helper-warning-snackbar';
@@ -89,7 +87,7 @@ async function run() {
     const checkboxContainer = createConsoleOutputToggleCheckbox();
     addToDocumentBody(checkboxContainer);
 
-    exerciseCrawlerFn = () => {
+    exerciseCrawlerFn = async () => {
       const includeConsoleOutput =
         checkboxContainer.querySelector('input').checked;
       return exerciseCrawler(includeConsoleOutput);
@@ -120,9 +118,6 @@ async function run() {
 
   const copyFn = async () => {
     const pageCrawler = pageCrawlers.get(currentPage);
-    if (submitAnswerOnCopy) {
-      submitAnswer();
-    }
     const clipboardContent = await pageCrawler();
     GM.setClipboard(clipboardContent);
     showSnackbar(copyInfoSnackbarId, 'Copied R markdown to clipboard!');
@@ -204,7 +199,7 @@ async function getCurrentPage() {
   }
 }
 
-function submitAnswer() {
+async function submitAnswer() {
   const kbEvtInit = {
     key: 'Enter',
     code: 'Enter',
@@ -223,6 +218,14 @@ function submitAnswer() {
     cancelable: true,
     composed: true,
   };
+  dispatchKeyboardEvent(kbEvtInit);
+
+  log('submitting answer');
+  await answerSubmitted();
+  log('answer submitted');
+}
+
+function dispatchKeyboardEvent(kbEvtInit) {
   const keyboardEvent = new KeyboardEvent('keydown', kbEvtInit);
 
   const activeElement = document.activeElement;
@@ -233,23 +236,34 @@ function submitAnswer() {
 
 async function answerSubmitted() {
   const consoleWrapper = document.querySelector('.console--wrapper');
+  const submitAnswerButton = document.querySelector(
+    '[data-cy="submit-button"]'
+  );
+
   if (consoleWrapper) {
     return new Promise(resolve => {
-      const obs = new MutationObserver((recs, obs) =>
-        recs.forEach(r => {
-          const finalLine = Array.from(r.addedNodes).find(el =>
-            el.className.includes('view-line')
-          );
-          if (finalLine) {
-            resolve();
-            obs.disconnect();
-          }
-        })
-      );
+      const obs = new MutationObserver((_, obs) => {
+        // submit button is disabled once answer is submitted (but not immediately after submitting)
+        // we wait for it to become disabled
+        const isEnabled = !submitAnswerButton.disabled;
 
-      obs.observe(consoleWrapper, {
-        childList: true,
-        subtree: true,
+        if (isEnabled) {
+          obs.disconnect();
+
+          const newObs = new MutationObserver((_, obs) => {
+            obs.disconnect();
+            resolve();
+          });
+
+          newObs.observe(consoleWrapper, { childList: true, subtree: true });
+        } else if (document.querySelector('.dc-completed__continue')) {
+          obs.disconnect();
+          resolve();
+        }
+      });
+      obs.observe(submitAnswerButton, {
+        attributes: true,
+        attributeFilter: ['disabled'],
       });
     });
   }
@@ -259,6 +273,26 @@ function getURLQueryParams() {
   return new Proxy(new URLSearchParams(window.location.search), {
     get: (searchParams, prop) => searchParams.get(prop),
   });
+}
+
+function removeComments(line) {
+  const matchRes = line.match(/(.*(?<!["']))(#.*)/);
+  if (!matchRes) {
+    // line includes no comment
+    return line;
+  }
+  const code = matchRes[1];
+  return code;
+}
+
+function extractComments(line) {
+  const matchRes = line.match(/(.*(?<!["']))(#.*)/);
+  if (!matchRes) {
+    // line includes no comment
+    return '';
+  }
+  const comment = matchRes[2];
+  return comment;
 }
 
 function getTextContent(elementSelector, root = document, trim = true) {
@@ -446,192 +480,254 @@ ${chapters}
 }
 
 async function exerciseCrawler(includeConsoleOutput = false) {
+  const exerciseContent = await getExerciseContent(
+    includeConsoleOutput,
+    pasteSubExercisesTogether,
+    submitAnswerOnCopy
+  );
+
+  return exerciseContent;
+}
+
+async function getExerciseContent(
+  includeConsoleOutput = true,
+  pasteSubExercisesTogether = true,
+  submitAnswer = true
+) {
   const exerciseTitle = `## ${getTextContent('.exercise--title')}`;
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
     .map(p => HTMLTextLinksCodeToMarkdown(p))
     .join('\n\n');
 
-  const exerciseBeginning = [exerciseTitle, exercisePars].join('\n');
+  const exerciseIntro = [exerciseTitle, exercisePars].join('\n');
 
-  const subExerciseBullets = selectElements('.progress-bullet__link');
-  const subExerciseIdx = subExerciseBullets.findIndex(b =>
-    b.className.includes('active-tab')
-  );
+  let exerciseBody = '';
 
-  const exerciseInstructions = getExerciseInstructions(
-    subExerciseBullets,
-    subExerciseIdx
-  );
+  let subExIdx = getSubExerciseIndex();
+  const hasSubexercises = subExIdx !== -1;
 
-  const codeEditors = selectElements('.monaco-editor');
-
-  const codeCommentLines = [];
-
-  const editorContentStrs = codeEditors.map(codeEditor =>
-    getTextContents('.view-line', codeEditor, false)
-      .map(l => l.replace(/ /g, ' ')) // instead of regular white space other char (ASCII code: 160 (decimal)) is used
-      .filter(str => {
-        const trimmed = str.trim();
-        if (trimmed.startsWith('#')) {
-          codeCommentLines.push(trimmed);
-          return copyRSessionCodeComments;
-        }
-        return true;
-      })
-      .filter(str => str.trim().length > 0)
-      .join('\n')
-  );
-
-  const editorLines = editorContentStrs.join('\n').split('\n');
-
-  const RCodeBlocks = editorContentStrs
-    .filter(linesStr => linesStr.trim().length > 0)
-    .map(linesStr => {
-      return (
-        `\`\`\`{r${includeConsoleOutput ? ', eval=FALSE' : ''}}\n` +
-        linesStr +
-        '\n```'
-      );
-    })
-    .join('\n\n');
-
-  let RConsoleOutputCodeBlock = '';
-
-  // only include console output if there's code in the editor and console output should be included!
-  if (RCodeBlocks && includeConsoleOutput) {
-    await answerSubmitted();
-
-    let RConsoleOutDivContents = getTextContents(
-      '[data-cy="console-editor"]>div>div>div'
-    );
-
-    // goal: Find index of last console div that is relevant for copying; it should satisfy the following conditions:
-    // 1. content is identical to the beginning of the code in the editor (if whitespace and comments are removed in both) - only code from this line onwards can be relevant
-    // 2. all editor lines should be included in the code output lines
-    let idxOfDivMarkingStartOfLastCodeOutput = -1; // -1 indicates "not found"
-
-    const coutDivContsNoWhitespaceOrComments = RConsoleOutDivContents.map(
-      content =>
-        content
-          .split('\n')
-          .map(l => l.trim())
-          .filter(l => !l.startsWith('#'))
-          .map(l => l.replace(/ /g, ''))
-          .join('')
-    );
-
-    const editorLinesStrNoWhitespaceOrComments = editorLines
-      .map(l => l.trim())
-      .filter(l => !l.startsWith('#'))
-      .map(l => l.replace(/ /g, ''))
-      .join('');
-
-    let remainingEditorCode = editorLinesStrNoWhitespaceOrComments;
-    for (let i = coutDivContsNoWhitespaceOrComments.length - 1; i >= 0; i--) {
-      const content = coutDivContsNoWhitespaceOrComments[i];
-      if (!content) continue; // empty lines are possible!
-      if (remainingEditorCode.endsWith(content)) {
-        remainingEditorCode = remainingEditorCode.substring(
-          0,
-          remainingEditorCode.lastIndexOf(content)
+  if (!hasSubexercises) {
+    exerciseBody += getExerciseInstructions();
+    exerciseBody += await getExerciseCode(includeConsoleOutput, submitAnswer);
+  } else {
+    if (pasteSubExercisesTogether) {
+      while (getLinkToNextSubExercise()) {
+        exerciseBody += getSubExerciseInstructions(subExIdx);
+        exerciseBody += await getExerciseCode(
+          includeConsoleOutput,
+          submitAnswer
         );
-        if (!remainingEditorCode) {
-          idxOfDivMarkingStartOfLastCodeOutput = i;
-          break;
-        }
+        subExIdx++;
       }
     }
-
-    if (idxOfDivMarkingStartOfLastCodeOutput === -1) {
-      showWarning(
-        'The code you wrote was not found in the console output. Did you forget to run it?'
-      );
-    }
-
-    if (copyOnlyConsoleOutOfCodeInEditor) {
-      RConsoleOutDivContents = RConsoleOutDivContents.slice(
-        idxOfDivMarkingStartOfLastCodeOutput
-      );
-    }
-
-    if (!copyEditorCodeFromConsoleOut) {
-      RConsoleOutDivContents = RConsoleOutDivContents.filter(
-        str =>
-          str.trim().length == 0 || // keep empty lines in output to make it easier to differentiate what command produced what output
-          !editorLines.includes(str.split('\n')[0])
-      );
-    }
-
-    if (!copyRSessionCodeComments) {
-      RConsoleOutDivContents = RConsoleOutDivContents.filter(
-        // Note: if copyEditorCodeFromConsoleOut is true, this solution misses e.g. comments inside a single assignment to some variable that spans multiple lines
-        str => !codeCommentLines.find(l => l === str.trim())
-      );
-    }
-
-    const RConsoleOut = RConsoleOutDivContents.map(divLinesStr => {
-      if (!limitMaxLinesPerConsoleOut) {
-        return divLinesStr;
-      }
-      const lines = divLinesStr.split('\n');
-      const truncatedLines = lines.slice(0, maxLinesPerConsoleOut);
-      return truncatedLines.join('\n');
-    })
-      .filter(
-        // remove last div container content == line where new code could be entered into console (usually just ">") -> irrelevant!
-        (_, i, arr) => i != arr.length - 1
-      )
-      .join('\n')
-      .trim(); // trim because we don't need empty lines in beginning or end of console output
-
-    RConsoleOutputCodeBlock =
-      'After running the code above in the R session on DataCamp we get:\n' +
-      '```\n' +
-      RConsoleOut +
-      '\n```';
+    exerciseBody += getSubExerciseInstructions(subExIdx);
+    exerciseBody += await getExerciseCode(includeConsoleOutput, submitAnswer);
   }
 
-  const rMarkdown =
-    [
-      subExerciseIdx <= 0 ? exerciseBeginning : '', // we don't need beginning text again if we're copying one of subexercises != the first
-      exerciseInstructions,
-      RCodeBlocks,
-      RConsoleOutputCodeBlock,
-    ]
-      .filter(str => str.length > 0)
-      .join('\n\n') + '\n';
-
-  return rMarkdown;
+  return exerciseIntro + '\n\n' + exerciseBody;
 }
 
-function getExerciseInstructions(subExerciseBullets, subExerciseIdx = 0) {
-  if (subExerciseBullets.length > 0) {
-    const instructions = selectElements('.exercise--instructions>*')
-      .map(el => {
-        return Array.from(el.children)
-          .map(el => {
-            const textContent = el.textContent.trim();
-            if (el.nodeName === 'H4') return ''; //return `### ${textContent}`; This is usually the "Question" heading - probably irrelevant for copying
-            if (el.nodeName === 'H5') return ''; //`#### ${textContent}`; This is usually "Possible answers" heading - also probably irrelevant
-            if (el.nodeName === 'UL') return HTMLListToMarkdown(el) + '\n';
-            if (el.className.includes('actions'))
-              return ''; // actions are buttons etc. -> text is irrelevant
-            else return textContent;
-          })
-          .filter(str => str.trim().length > 0)
-          .join('\n');
-      })
-      .join('\n');
+async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
+  const editor = selectElements('.monaco-editor')[0]; // 2 "code editors" should exist; second is only input for R Console - irrelevant
 
-    return includeSubExerciseSubheadings
-      ? `### Subtask ${subExerciseIdx + 1}\n`
-      : '' + instructions;
+  const editorLineMarkers = Array.from(
+    selectElements('.line-numbers', editor)[0].parentElement.parentElement
+      .children
+  ).map(el => el.textContent);
+
+  const editorLineNumbers = new Array(editorLineMarkers.length).fill(0);
+  editorLineNumbers.forEach((_, i, arr) => {
+    const lineMarkerStr = editorLineMarkers[i];
+    if (lineMarkerStr !== '') {
+      arr[i] = +lineMarkerStr - 1;
+    } else {
+      arr[i] = arr[i - 1];
+    }
+  });
+
+  const editorLines = new Array(editorLineNumbers.at(-1) + 1).fill('');
+  getTextContents('.view-line>span', editor, false).forEach(
+    (lineContent, i) => {
+      const codeLine = editorLineNumbers[i];
+      editorLines[codeLine] += lineContent;
+    }
+  );
+
+  const editorLinesNoComments = editorLines.map(removeComments);
+  const editorCodeCompressed = editorLines.join('').replace(/\s/g, '');
+
+  const code = getEditorCodeBlock(
+    (copyRSessionCodeComments ? editorLines : editorLinesNoComments).join('\n'),
+    includeConsoleOutput
+  );
+
+  if (submitCodeInEditor) {
+    await submitAnswer();
   }
 
-  return selectElements('.exercise--instructions li')
-    .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
+  if (includeConsoleOutput) {
+    const codeOutput = getCodeOutput(editorCodeCompressed);
+    return [code, codeOutput].join('\n\n') + '\n\n';
+  } else return code + '\n\n';
+}
+
+function getLinkToNextSubExercise() {
+  return getCodeSubExerciseLink(1);
+}
+
+function getSubExerciseIndex() {
+  const subExerciseBullets = selectElements(
+    // selectors for horizontally and vertically arranged bullets
+    '.progress-bullet__link, .bullet-instructions-list .bullet-instruction'
+  );
+
+  const currSubExerciseIdx = subExerciseBullets.findIndex(b =>
+    b.className.includes('active')
+  );
+
+  return currSubExerciseIdx;
+}
+
+function getCodeSubExerciseLink(offsetFromCurrent) {
+  const subExerciseBullets = selectElements(
+    // selectors for horizontally and vertically arranged bullets
+    '.progress-bullet__link, .bullet-instructions-list .bullet-instruction'
+  );
+
+  const currSubExerciseIdx = subExerciseBullets.findIndex(b =>
+    b.className.includes('active')
+  );
+
+  return subExerciseBullets[currSubExerciseIdx + offsetFromCurrent];
+}
+
+function getEditorCodeBlock(code, evaluate) {
+  const RCodeBlock =
+    `\`\`\`{r${evaluate ? ', eval=FALSE' : ''}}\n` + code + '\n```';
+
+  return RCodeBlock;
+}
+
+function getCodeOutput(editorsCodeCompressed) {
+  let RConsoleOutDivContents = getTextContents(
+    '[data-cy="console-editor"]>div>div>div'
+  );
+
+  // goal: Find index of last console div that is relevant for copying; it should satisfy the following conditions:
+  // 1. content is identical to the beginning of the code in the editor (if whitespace and comments are removed in both) - only code from this line onwards can be relevant
+  // 2. all editor lines should be included in the code output lines
+  let idxOfDivMarkingStartOfLastCodeOutput = -1; // -1 indicates "not found"
+
+  const coutDivContentsCompressed = RConsoleOutDivContents.map(content =>
+    content.replace(/\s/g, '')
+  );
+
+  let remainingEditorCode = editorsCodeCompressed;
+  for (let i = coutDivContentsCompressed.length - 1; i >= 0; i--) {
+    const content = coutDivContentsCompressed[i];
+    if (!content) continue; // empty lines are possible!
+    if (remainingEditorCode.endsWith(content)) {
+      remainingEditorCode = remainingEditorCode.substring(
+        0,
+        remainingEditorCode.lastIndexOf(content)
+      );
+      if (!remainingEditorCode) {
+        idxOfDivMarkingStartOfLastCodeOutput = i;
+        break;
+      }
+    }
+  }
+
+  if (idxOfDivMarkingStartOfLastCodeOutput === -1) {
+    showWarning(
+      'The code you wrote was not found in the console output. Did you forget to run it?'
+    );
+  }
+
+  if (copyOnlyConsoleOutOfCodeInEditor) {
+    RConsoleOutDivContents = RConsoleOutDivContents.slice(
+      idxOfDivMarkingStartOfLastCodeOutput
+    );
+  }
+
+  if (!copyEditorCodeFromConsoleOut) {
+    //TODO: if motivated, handle cases where comments should or should not be removed in copied output...
+    RConsoleOutDivContents = RConsoleOutDivContents.filter(content => {
+      const contentCompressed = content.replaceAll(/\s/g, '');
+      return !editorsCodeCompressed.includes(contentCompressed); // keep only stuff that doesn't occur in code already
+    });
+  }
+
+  let linesWereTruncated = false;
+
+  const RConsoleOut = RConsoleOutDivContents.map(divLinesStr => {
+    if (!limitMaxLinesPerConsoleOut) {
+      return divLinesStr;
+    }
+    const lines = divLinesStr.split('\n');
+    const truncatedLines = lines.slice(0, maxLinesPerConsoleOut);
+    if (truncatedLines.length < lines.length) {
+      linesWereTruncated = true;
+    }
+    return truncatedLines.join('\n');
+  })
+    .join('\n')
+    .trim(); // trim because we don't need empty lines in beginning or end of console output
+
+  const RConsoleOutputCodeBlock =
+    'Running the code above produces the following output (in the R Session on DataCamp):\n' +
+    '```\n' +
+    RConsoleOut +
+    '\n```' +
+    (linesWereTruncated
+      ? `**Note:** Some commands produced very long output. For those cases, the output was limited to ${maxLinesPerConsoleOut} lines.\n`
+      : '');
+
+  return RConsoleOutputCodeBlock;
+}
+
+function getExerciseInstructions() {
+  const instructions = selectElements('.exercise--instructions>*')
+    .map(el => {
+      return Array.from(el.children)
+        .map(el => {
+          const textContent = el.textContent.trim();
+          if (el.nodeName === 'H4') return ''; //return `### ${textContent}`; This is usually the "Question" heading - probably irrelevant for copying
+          if (el.nodeName === 'H5') return ''; //`#### ${textContent}`; This is usually "Possible answers" heading - also probably irrelevant
+          if (el.nodeName === 'UL') return HTMLListToMarkdown(el) + '\n';
+          if (
+            el.className.includes('actions') ||
+            el.className.includes('feedback')
+          )
+            return ''; // actions are buttons etc. -> text is irrelevant
+          else return textContent;
+        })
+        .filter(str => str.trim().length > 0)
+        .join('\n');
+    })
     .join('\n');
+
+  return instructions + '\n\n';
+}
+
+function getSubExerciseInstructions(idx = 0) {
+  const verticalInstructions = selectElements('.exercise--instructions>*')
+    .map(el => {
+      return Array.from(el.children).filter(el => el.nodeName === 'P');
+    })
+    .flat();
+
+  const horizontalInstructions = selectElements(
+    '.exercise--instructions__content'
+  );
+
+  const instructions =
+    verticalInstructions.length === 0
+      ? horizontalInstructions
+      : verticalInstructions[idx];
+
+  return ' * ' + HTMLTextLinksCodeToMarkdown(instructions) + '\n\n';
 }
 
 function dragDropExerciseCrawler() {
@@ -703,7 +799,7 @@ function videoPageCrawler() {
 }
 
 function getDragdropContent() {
-  const container = selectSingleElement('.drag-and-drop-exercise');
+  const container = selectElements('.drag-and-drop-exercise');
   if (!container) return null;
 
   const headings = selectElements('.droppable-container h5', container);
@@ -874,7 +970,7 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
 // adapted from: https://gist.github.com/styfle/c4bba2d29e6cb9b585de72207c006af7
 function HTMLTableToMarkdown(el) {
   let outputStr = '| ';
-  const thead = selectSingleElement('thead', el);
+  const thead = selectElements('thead', el);
   const headcells = selectElements('th, td', thead);
   for (let i = 0; i < headcells.length; i++) {
     const cell = headcells[i];
@@ -891,7 +987,7 @@ function HTMLTableToMarkdown(el) {
 
   outputStr += '|\n';
 
-  const tbody = selectSingleElement('tbody', el);
+  const tbody = selectElements('tbody', el);
   const trs = selectElements('tr', tbody);
   for (let i = 0; i < trs.length; i++) {
     outputStr += '| ';
@@ -1000,7 +1096,7 @@ function addSlideImageViewFeatures() {
         : 'close slide image view';
 
       if (showSlideImgs) {
-        selectSingleElement('video').pause();
+        selectElements('video').pause();
       }
     });
 
@@ -1305,6 +1401,10 @@ function objToCssPropsAndValsStr(obj) {
   return Object.entries(obj)
     .map(([prop, val]) => `${prop}: ${val};`)
     .join('\n');
+}
+
+function log(content) {
+  console.log('[DataCamp copy helper]', content);
 }
 
 window.addEventListener('load', run, { once: true });
