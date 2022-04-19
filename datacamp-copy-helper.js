@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.1.5
+// @version      2.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -19,7 +19,9 @@ const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of
 const limitMaxLinesPerConsoleOut = true; // whether the maximum number of lines included when copying a single "thing" printed to the console should be limited when copying
 const maxLinesPerConsoleOut = 50; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
 const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
-const pasteSubExercisesTogether = true; // whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
+const pasteSubExercisesTogether = true; // CAUTION: currently a bit buggy - try refreshing browser if it doesn't work first time! defines whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
+const taskAndSolutionHeadings = true;
+const IncludeConsoleOutInfoText = false;
 
 // TODO: remove this global const if/when refactoring the codebase
 const warningSnackbarId = 'copy-helper-warning-snackbar';
@@ -242,26 +244,34 @@ async function answerSubmitted() {
 
   if (consoleWrapper) {
     return new Promise(resolve => {
-      const obs = new MutationObserver((_, obs) => {
+      const submitButtonObs = new MutationObserver((_, obs) => {
         // submit button is disabled once answer is submitted (but not immediately after submitting)
-        // we wait for it to become disabled
+
+        // if the current exercise is an exercise without subexercises (or the last subexercise), we need to wait for the "continue" button to appear on the site
+        if (document.querySelector('.dc-completed__continue')) {
+          obs.disconnect();
+          resolve();
+        }
+
+        // otherwise, (if the submitted exercise is a subexercise, but not the last one), we need to wait for the button to become available again
+        // only then the current exercise is submitted completely and the relevant output is in the console
         const isEnabled = !submitAnswerButton.disabled;
 
         if (isEnabled) {
           obs.disconnect();
 
-          const newObs = new MutationObserver((_, obs) => {
+          const editor = selectElements('.monaco-editor')[0];
+
+          // editor code for next exercise is not available immediately, it is added later; wait for first mutation in subTree!
+          const editorObs = new MutationObserver((_, obs) => {
             obs.disconnect();
             resolve();
           });
 
-          newObs.observe(consoleWrapper, { childList: true, subtree: true });
-        } else if (document.querySelector('.dc-completed__continue')) {
-          obs.disconnect();
-          resolve();
+          editorObs.observe(editor, { childList: true, subtree: true });
         }
       });
-      obs.observe(submitAnswerButton, {
+      submitButtonObs.observe(submitAnswerButton, {
         attributes: true,
         attributeFilter: ['disabled'],
       });
@@ -404,11 +414,13 @@ function startsWithWhitespace(str) {
 }
 
 function HTMLTextLinksCodeToMarkdown(el) {
-  const childNodes = Array.from(el.childNodes);
+  const childNodes = Array.from(el?.childNodes || []);
   if (el.nodeName === 'PRE') {
     const textContent = el.textContent.trim();
     if (el.childNodes[0].nodeName === 'CODE') {
-      return '```{r}\n' + `${textContent.replace(/ /g, ' ')}` + '\n```';
+      return (
+        '```{r, eval = FALSE}\n' + `${textContent.replace(/ /g, ' ')}` + '\n```'
+      );
     } else {
       return textContent;
     }
@@ -494,7 +506,9 @@ async function getExerciseContent(
   pasteSubExercisesTogether = true,
   submitAnswer = true
 ) {
-  const exerciseTitle = `## ${getTextContent('.exercise--title')}`;
+  const exerciseTitle = `## ${getTextContent('.exercise--title')}${
+    taskAndSolutionHeadings ? '\n### Exercise description' : ''
+  }`;
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
     .map(p => HTMLTextLinksCodeToMarkdown(p))
@@ -508,9 +522,12 @@ async function getExerciseContent(
   const hasSubexercises = subExIdx !== -1;
 
   if (!hasSubexercises) {
+    if (taskAndSolutionHeadings) exerciseBody += '\n### Task\n\n';
     exerciseBody += getExerciseInstructions();
+    if (taskAndSolutionHeadings) exerciseBody += '\n### Solution\n\n';
     exerciseBody += await getExerciseCode(includeConsoleOutput, submitAnswer);
   } else {
+    if (taskAndSolutionHeadings) exerciseBody += '\n### Tasks\n\n';
     if (pasteSubExercisesTogether) {
       while (getLinkToNextSubExercise()) {
         exerciseBody += getSubExerciseInstructions(subExIdx);
@@ -521,6 +538,7 @@ async function getExerciseContent(
         subExIdx++;
       }
     }
+
     exerciseBody += getSubExerciseInstructions(subExIdx);
     exerciseBody += await getExerciseCode(includeConsoleOutput, submitAnswer);
   }
@@ -532,33 +550,7 @@ async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
   const editors = selectElements('.monaco-editor');
 
   if (editors.length > 1) {
-    const editor = editors[0];
-
-    const editorLineMarkers = Array.from(
-      selectElements('.line-numbers', editor)[0].parentElement.parentElement
-        .children
-    ).map(el => el.textContent);
-
-    const editorLineNumbers = new Array(editorLineMarkers.length).fill(0);
-    editorLineNumbers.forEach((_, i, arr) => {
-      const lineMarkerStr = editorLineMarkers[i];
-      if (lineMarkerStr !== '') {
-        arr[i] = +lineMarkerStr - 1;
-      } else {
-        arr[i] = arr[i - 1];
-      }
-    });
-
-    const editorLines =
-      editorLineNumbers.length == 0
-        ? []
-        : new Array(editorLineNumbers.at(-1) + 1).fill('');
-    getTextContents('.view-line>span', editor, false).forEach(
-      (lineContent, i) => {
-        const codeLine = editorLineNumbers[i];
-        editorLines[codeLine] += lineContent;
-      }
-    );
+    const editorLines = getEditorCodeLines(editors[0]);
 
     const editorLinesNoComments = editorLines.map(removeComments);
     const editorCodeCompressed = editorLines.join('').replace(/\s/g, '');
@@ -577,14 +569,44 @@ async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
 
     if (includeConsoleOutput) {
       const codeOutput = getConsoleOutput(editorCodeCompressed);
-      return [code, codeOutput].join('\n\n');
-    } else return code;
+      return [code, codeOutput].join('\n\n') + '\n\n';
+    } else return code + '\n\n';
   } else {
     if (includeConsoleOutput) {
       const consoleOutput = getConsoleOutput();
-      return consoleOutput;
+      return consoleOutput + '\n\n';
     }
   }
+}
+
+function getEditorCodeLines(editor) {
+  const editorLineMarkers = Array.from(
+    selectElements('.line-numbers', editor)[0].parentElement.parentElement
+      .children
+  ).map(el => el.textContent);
+
+  const editorLineNumbers = new Array(editorLineMarkers.length).fill(0);
+  editorLineNumbers.forEach((_, i, arr) => {
+    const lineMarkerStr = editorLineMarkers[i];
+    if (lineMarkerStr !== '') {
+      arr[i] = +lineMarkerStr - 1;
+    } else {
+      arr[i] = arr[i - 1];
+    }
+  });
+
+  const editorLines =
+    editorLineNumbers.length == 0
+      ? []
+      : new Array(editorLineNumbers.at(-1) + 1).fill('');
+  getTextContents('.view-line>span', editor, false).forEach(
+    (lineContent, i) => {
+      const codeLine = editorLineNumbers[i];
+      editorLines[codeLine] += lineContent;
+    }
+  );
+
+  return editorLines;
 }
 
 function getLinkToNextSubExercise() {
@@ -698,7 +720,9 @@ function getConsoleOutput(editorsCodeCompressed = '') {
     .trim(); // trim because we don't need empty lines in beginning or end of console output
 
   const RConsoleOutputCodeBlock =
-    'The following output was produced in the R Session on DataCamp:\n' +
+    (IncludeConsoleOutInfoText
+      ? 'The following output was produced in the R Session on DataCamp:\n'
+      : '') +
     '```\n' +
     RConsoleOut +
     '\n```' +
@@ -734,22 +758,17 @@ function getExerciseInstructions() {
 }
 
 function getSubExerciseInstructions(idx = 0) {
-  const verticalInstructions = selectElements('.exercise--instructions>*')
-    .map(el => {
-      return Array.from(el.children).filter(el => el.nodeName === 'P');
-    })
-    .flat();
-
-  const horizontalInstructions = selectElements(
+  const instructionElements = selectElements(
     '.exercise--instructions__content'
   );
+  const currentInstructions =
+    instructionElements.length > 1
+      ? instructionElements[idx]
+      : instructionElements[0];
 
-  const instructions =
-    verticalInstructions.length === 0
-      ? horizontalInstructions
-      : verticalInstructions[idx];
-
-  return ' * ' + HTMLTextLinksCodeToMarkdown(instructions) + '\n\n';
+  return (
+    ` ${idx + 1}. ` + HTMLTextLinksCodeToMarkdown(currentInstructions) + '\n\n'
+  );
 }
 
 function dragDropExerciseCrawler() {
