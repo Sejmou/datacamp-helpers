@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.1
+// @version      2.1.5
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -525,51 +525,66 @@ async function getExerciseContent(
     exerciseBody += await getExerciseCode(includeConsoleOutput, submitAnswer);
   }
 
-  return exerciseIntro + '\n\n' + exerciseBody;
+  return exerciseIntro + '\n' + exerciseBody;
 }
 
 async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
-  const editor = selectElements('.monaco-editor')[0]; // 2 "code editors" should exist; second is only input for R Console - irrelevant
+  const editors = selectElements('.monaco-editor');
 
-  const editorLineMarkers = Array.from(
-    selectElements('.line-numbers', editor)[0].parentElement.parentElement
-      .children
-  ).map(el => el.textContent);
+  if (editors.length > 1) {
+    const editor = editors[0];
 
-  const editorLineNumbers = new Array(editorLineMarkers.length).fill(0);
-  editorLineNumbers.forEach((_, i, arr) => {
-    const lineMarkerStr = editorLineMarkers[i];
-    if (lineMarkerStr !== '') {
-      arr[i] = +lineMarkerStr - 1;
-    } else {
-      arr[i] = arr[i - 1];
+    const editorLineMarkers = Array.from(
+      selectElements('.line-numbers', editor)[0].parentElement.parentElement
+        .children
+    ).map(el => el.textContent);
+
+    const editorLineNumbers = new Array(editorLineMarkers.length).fill(0);
+    editorLineNumbers.forEach((_, i, arr) => {
+      const lineMarkerStr = editorLineMarkers[i];
+      if (lineMarkerStr !== '') {
+        arr[i] = +lineMarkerStr - 1;
+      } else {
+        arr[i] = arr[i - 1];
+      }
+    });
+
+    const editorLines =
+      editorLineNumbers.length == 0
+        ? []
+        : new Array(editorLineNumbers.at(-1) + 1).fill('');
+    getTextContents('.view-line>span', editor, false).forEach(
+      (lineContent, i) => {
+        const codeLine = editorLineNumbers[i];
+        editorLines[codeLine] += lineContent;
+      }
+    );
+
+    const editorLinesNoComments = editorLines.map(removeComments);
+    const editorCodeCompressed = editorLines.join('').replace(/\s/g, '');
+
+    const code = getEditorCodeBlock(
+      (copyRSessionCodeComments ? editorLines : editorLinesNoComments)
+        .filter(l => l.trim().length > 0)
+        .join('\n')
+        .replaceAll(' ', ' '), // for some reason, some weird ASCII character is used for spaces in code -> replace with regular space
+      includeConsoleOutput
+    );
+
+    if (submitCodeInEditor) {
+      await submitAnswer();
     }
-  });
 
-  const editorLines = new Array(editorLineNumbers.at(-1) + 1).fill('');
-  getTextContents('.view-line>span', editor, false).forEach(
-    (lineContent, i) => {
-      const codeLine = editorLineNumbers[i];
-      editorLines[codeLine] += lineContent;
+    if (includeConsoleOutput) {
+      const codeOutput = getConsoleOutput(editorCodeCompressed);
+      return [code, codeOutput].join('\n\n');
+    } else return code;
+  } else {
+    if (includeConsoleOutput) {
+      const consoleOutput = getConsoleOutput();
+      return consoleOutput;
     }
-  );
-
-  const editorLinesNoComments = editorLines.map(removeComments);
-  const editorCodeCompressed = editorLines.join('').replace(/\s/g, '');
-
-  const code = getEditorCodeBlock(
-    (copyRSessionCodeComments ? editorLines : editorLinesNoComments).join('\n'),
-    includeConsoleOutput
-  );
-
-  if (submitCodeInEditor) {
-    await submitAnswer();
   }
-
-  if (includeConsoleOutput) {
-    const codeOutput = getCodeOutput(editorCodeCompressed);
-    return [code, codeOutput].join('\n\n') + '\n\n';
-  } else return code + '\n\n';
 }
 
 function getLinkToNextSubExercise() {
@@ -609,7 +624,7 @@ function getEditorCodeBlock(code, evaluate) {
   return RCodeBlock;
 }
 
-function getCodeOutput(editorsCodeCompressed) {
+function getConsoleOutput(editorsCodeCompressed = '') {
   let RConsoleOutDivContents = getTextContents(
     '[data-cy="console-editor"]>div>div>div'
   );
@@ -639,13 +654,16 @@ function getCodeOutput(editorsCodeCompressed) {
     }
   }
 
-  if (idxOfDivMarkingStartOfLastCodeOutput === -1) {
+  if (editorsCodeCompressed && idxOfDivMarkingStartOfLastCodeOutput === -1) {
     showWarning(
       'The code you wrote was not found in the console output. Did you forget to run it?'
     );
   }
 
-  if (copyOnlyConsoleOutOfCodeInEditor) {
+  if (
+    copyOnlyConsoleOutOfCodeInEditor &&
+    idxOfDivMarkingStartOfLastCodeOutput >= 0
+  ) {
     RConsoleOutDivContents = RConsoleOutDivContents.slice(
       idxOfDivMarkingStartOfLastCodeOutput
     );
@@ -672,19 +690,23 @@ function getCodeOutput(editorsCodeCompressed) {
     }
     return truncatedLines.join('\n');
   })
+    .filter(
+      // sometimes (but for some reason not always!?), final line (input for new code) without output is also included -> remove
+      (output, i, arr) => !(output.startsWith('>') && i === arr.length - 1)
+    )
     .join('\n')
     .trim(); // trim because we don't need empty lines in beginning or end of console output
 
   const RConsoleOutputCodeBlock =
-    'Running the code above produces the following output (in the R Session on DataCamp):\n' +
+    'The following output was produced in the R Session on DataCamp:\n' +
     '```\n' +
     RConsoleOut +
     '\n```' +
     (linesWereTruncated
-      ? `**Note:** Some commands produced very long output. For those cases, the output was limited to ${maxLinesPerConsoleOut} lines.\n`
+      ? `**Note:** Some parts of the output were very long. Each code output shown here was therefore limited to max. ${maxLinesPerConsoleOut} lines.\n`
       : '');
 
-  return RConsoleOutputCodeBlock;
+  return RConsoleOut.length > 0 ? RConsoleOutputCodeBlock : '';
 }
 
 function getExerciseInstructions() {
@@ -693,8 +715,8 @@ function getExerciseInstructions() {
       return Array.from(el.children)
         .map(el => {
           const textContent = el.textContent.trim();
-          if (el.nodeName === 'H4') return ''; //return `### ${textContent}`; This is usually the "Question" heading - probably irrelevant for copying
-          if (el.nodeName === 'H5') return ''; //`#### ${textContent}`; This is usually "Possible answers" heading - also probably irrelevant
+          if (el.nodeName === 'H4') return `### ${textContent}`; // This is usually the "Question" heading - probably irrelevant for copying
+          if (el.nodeName === 'H5') return `#### ${textContent}`; // This is usually "Possible answers" heading - also probably irrelevant
           if (el.nodeName === 'UL') return HTMLListToMarkdown(el) + '\n';
           if (
             el.className.includes('actions') ||
