@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.4.5
+// @version      2.4.6
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -575,7 +575,9 @@ async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
 
     if (includeConsoleOutput) {
       const codeOutput = getConsoleOutput(editorCodeCompressed);
-      return [code, codeOutput].join('\n\n') + '\n\n';
+      return (
+        [code, codeOutput].filter(str => str.length > 0).join('\n\n') + '\n\n'
+      );
     } else return code + '\n\n';
   } else {
     if (includeConsoleOutput) {
@@ -726,17 +728,27 @@ function getConsoleOutput(editorsCodeCompressed = '') {
     .trim(); // trim because we don't need empty lines in beginning or end of console output
 
   const RConsoleOutputCodeBlock =
-    (IncludeConsoleOutInfoText
-      ? 'The following output was produced in the R Session on DataCamp:\n'
-      : '') +
-    '```\n' +
-    RConsoleOut +
-    '\n```' +
-    (linesWereTruncated
-      ? `**Note:** Some parts of the output were very long. Each code output shown here was therefore limited to max. ${maxLinesPerConsoleOut} lines.\n`
-      : '');
+    RConsoleOut.length > 0
+      ? (IncludeConsoleOutInfoText
+          ? 'The following output was produced in the R Session on DataCamp:\n'
+          : '') +
+        '```\n' +
+        RConsoleOut +
+        '\n```' +
+        (linesWereTruncated
+          ? `**Note:** Some parts of the output were very long. Each code output shown here was therefore limited to max. ${maxLinesPerConsoleOut} lines.\n`
+          : '')
+      : '';
 
-  return RConsoleOut.length > 0 ? RConsoleOutputCodeBlock : '';
+  // if ggplot() is used in the plot, mention plot output that should be produced
+  // TODO: if very motivated, check if ggplot() is actually called in the code, not just mentioned anywhere in the code (including comments)
+  const plotInfoText = editorsCodeCompressed.includes('ggplot(')
+    ? 'The code creates the following plot:'
+    : '';
+
+  return [RConsoleOutputCodeBlock, plotInfoText]
+    .filter(str => str.length > 0)
+    .join('\n\n');
 }
 
 function getExerciseInstructions() {
