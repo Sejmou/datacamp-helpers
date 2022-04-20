@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.4.6
+// @version      2.4.7
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -1072,7 +1072,7 @@ function HTMLListToMarkdown(ul, indentLevel = 0) {
 // adapted from: https://gist.github.com/styfle/c4bba2d29e6cb9b585de72207c006af7
 function HTMLTableToMarkdown(el) {
   let outputStr = '| ';
-  const thead = selectElements('thead', el);
+  const thead = selectSingleElement('thead', el);
   const headcells = selectElements('th, td', thead);
   for (let i = 0; i < headcells.length; i++) {
     const cell = headcells[i];
@@ -1089,7 +1089,7 @@ function HTMLTableToMarkdown(el) {
 
   outputStr += '|\n';
 
-  const tbody = selectElements('tbody', el);
+  const tbody = selectSingleElement('tbody', el);
   const trs = selectElements('tr', tbody);
   for (let i = 0; i < trs.length; i++) {
     outputStr += '| ';
