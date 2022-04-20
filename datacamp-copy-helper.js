@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      2.4
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -788,9 +788,15 @@ function dragDropExerciseCrawler() {
     .map(p => HTMLTextLinksCodeToMarkdown(p))
     .join('\n\n');
 
+  const instructionsSubheading = taskAndSolutionHeadings
+    ? '### Instructions'
+    : '';
+
   const exerciseInstructions = selectElements('li', instructionsContainer)
     .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
     .join('\n');
+
+  const solutionSubheading = taskAndSolutionHeadings ? '### Solution' : '';
 
   const dragdropExerciseContent = document.querySelector(
     '[data-cy*="order-exercise"]'
@@ -798,10 +804,21 @@ function dragDropExerciseCrawler() {
     ? getDragIntoOrderContent()
     : getDragdropContent();
 
-  const rMarkdown =
-    exerciseTitle +
-    '\n' +
-    [exercisePars, exerciseInstructions, dragdropExerciseContent].join('\n\n');
+  const rMarkdown = [
+    exerciseTitle,
+    exercisePars,
+    instructionsSubheading,
+    exerciseInstructions,
+    solutionSubheading,
+    dragdropExerciseContent,
+  ]
+    .filter(l => l.length > 0)
+    .join('\n\n');
+
+  if (submitAnswerOnCopy) {
+    const submitButton = document.querySelector('[data-cy="submit-button"]');
+    submitButton?.click();
+  }
 
   return rMarkdown;
 }
@@ -867,7 +884,7 @@ function videoPageCrawler() {
 }
 
 function getDragdropContent() {
-  const container = selectElements('.drag-and-drop-exercise');
+  const container = selectSingleElement('.drag-and-drop-exercise');
   if (!container) return null;
 
   const headings = selectElements('.droppable-container h5', container);
