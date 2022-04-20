@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -10,6 +10,9 @@
 // @downloadURL  https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // @updateURL    https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
 // ==/UserScript==
+
+// general config
+const taskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
 
 // config for code exercises
 const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
@@ -20,7 +23,6 @@ const limitMaxLinesPerConsoleOut = true; // whether the maximum number of lines 
 const maxLinesPerConsoleOut = 50; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
 const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
 const pasteSubExercisesTogether = true; // CAUTION: currently a bit buggy - try refreshing browser if it doesn't work first time! defines whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
-const taskAndSolutionHeadings = true;
 const IncludeConsoleOutInfoText = false;
 
 // TODO: remove this global const if/when refactoring the codebase
@@ -415,8 +417,8 @@ function startsWithWhitespace(str) {
 
 function HTMLTextLinksCodeToMarkdown(el) {
   const childNodes = Array.from(el?.childNodes || []);
+  const textContent = el.textContent.trim();
   if (el.nodeName === 'PRE') {
-    const textContent = el.textContent.trim();
     if (el.childNodes[0].nodeName === 'CODE') {
       return (
         '```{r, eval = FALSE}\n' + `${textContent.replace(/ /g, ' ')}` + '\n```'
@@ -428,6 +430,10 @@ function HTMLTextLinksCodeToMarkdown(el) {
     return HTMLTableToMarkdown(el);
   } else if (el.nodeName === 'UL') {
     return HTMLListToMarkdown(el) + '\n';
+  } else if (el.nodeName === 'H1') {
+    return `## ${textContent}`;
+  } else if (el.nodeName === 'H4' || el.nodeName === 'H5') {
+    return `### ${textContent}`;
   }
   const textNodes = childNodes.map(c => {
     const textContent = c.textContent.trim();
@@ -716,7 +722,7 @@ function getConsoleOutput(editorsCodeCompressed = '') {
       // sometimes (but for some reason not always!?), final line (input for new code) without output is also included -> remove
       (output, i, arr) => !(output.startsWith('>') && i === arr.length - 1)
     )
-    .join('\n')
+    .join('\n\n')
     .trim(); // trim because we don't need empty lines in beginning or end of console output
 
   const RConsoleOutputCodeBlock =
@@ -801,15 +807,36 @@ function dragDropExerciseCrawler() {
 }
 
 function multipleChoiceExerciseCrawler() {
-  const heading = getTextContents('h1');
+  const headingEl = document.querySelector('h1');
+  const heading = headingEl ? `## ${headingEl?.textContent}` : '';
+  const descriptionParts = Array.from(headingEl?.nextSibling?.children || [])
+    .map(el => HTMLTextLinksCodeToMarkdown(el))
+    .join('\n');
 
-  const content = selectElements(
-    '[class*="le-shared-sticky-container"]>div>div>div>*'
-  )
+  const options = selectElements('.dc-panel__body>*')
+    .map(el => {
+      if (el.nodeName !== 'UL') return el;
+      const copy = el.cloneNode(true);
+      // ul may have press [1], press [2] etc. option texts - irrelevant when copying!
+      copy.querySelectorAll('.dc-u-ifx').forEach(c => c.remove());
+      return copy;
+    })
+    .filter(el => !el.querySelector('[data-cy="submit-button"]')) // if query selector matches, element is container for 'submit answer' button - irrelevant when copying
     .map(el => HTMLTextLinksCodeToMarkdown(el))
     .join('\n\n');
 
-  return `## ${heading}\n${content}`;
+  const solutionHeading = taskAndSolutionHeadings ? '### Solution' : '';
+
+  if (submitAnswerOnCopy) {
+    const submitButton = document.querySelector('[data-cy="submit-button"]');
+    submitButton?.click();
+  }
+
+  return (
+    [heading, descriptionParts, options, solutionHeading]
+      .filter(l => l.length > 0)
+      .join('\n\n') + '\n'
+  );
 }
 
 function videoPageCrawler() {
