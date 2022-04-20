@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.4
+// @version      2.4.5
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -765,7 +765,7 @@ function getExerciseInstructions() {
 
 function getSubExerciseInstructions(idx = 0) {
   const instructionElements = selectElements(
-    '.exercise--instructions__content'
+    '.exercise--instructions__content>*'
   );
   const currentInstructions =
     instructionElements.length > 1
@@ -773,7 +773,12 @@ function getSubExerciseInstructions(idx = 0) {
       : instructionElements[0];
 
   return (
-    ` ${idx + 1}. ` + HTMLTextLinksCodeToMarkdown(currentInstructions) + '\n\n'
+    ` ${idx + 1}.\n` +
+    HTMLTextLinksCodeToMarkdown(currentInstructions)
+      .split('\n')
+      .map(line => '    ' + line)
+      .join('\n') +
+    '\n\n'
   );
 }
 
