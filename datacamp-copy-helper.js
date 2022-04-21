@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.4.7
+// @version      2.6
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -556,7 +556,7 @@ async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
   const editors = selectElements('.monaco-editor');
 
   if (editors.length > 1) {
-    const editorLines = getEditorCodeLines(editors[0]);
+    const editorLines = await getEditorCodeLines();
 
     const editorLinesNoComments = editorLines.map(removeComments);
     const editorCodeCompressed = editorLines.join('').replace(/\s/g, '');
@@ -587,34 +587,136 @@ async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
   }
 }
 
-function getEditorCodeLines(editor) {
-  const editorLineMarkers = Array.from(
-    selectElements('.line-numbers', editor)[0].parentElement.parentElement
-      .children
-  ).map(el => el.textContent);
+async function getEditorCodeLines() {
+  // Annoying issue #1: not all editor code is added to DOM right away, only the part of it that is currently visible is added to DOM
+  // Furthermore, every line marker and code line that moves out of the viewport is removed from the DOM
+  // New DOM nodes are inserted once code scrolls back into view!
 
-  const editorLineNumbers = new Array(editorLineMarkers.length).fill(0);
-  editorLineNumbers.forEach((_, i, arr) => {
-    const lineMarkerStr = editorLineMarkers[i];
-    if (lineMarkerStr !== '') {
-      arr[i] = +lineMarkerStr - 1;
-    } else {
-      arr[i] = arr[i - 1];
+  // Annoying issue #2: code can be too long to fit into viewport width
+  // The editor then does NOT add a horizontal scrollbar
+  // Instead, an "artificial line break" is added, but the code line still remains the same
+
+  // Annoying issue #3: line markers and code lines in the DOM are NOT necessarily sorted by their y-position
+  // We have to sort them ourselves
+
+  // That's why all this weird code is necessary...
+
+  const lineMarkerContainer = selectElements('.margin-view-overlays')[0];
+
+  const lineMarkers = Array.from(lineMarkerContainer.children);
+  lineMarkers.sort(compareElementYPos);
+
+  const extractLineNumbersFromLineMarkers = lineMarkers => {
+    const lineNumbers = new Array(lineMarkers.length);
+    for (let i = 0; i < lineNumbers.length; i++) {
+      // textContent of lineMarker can either be valid line number string (>= 1), or empty
+      // if we get back 0, we know that we actually observed an empty string
+      // in this case, we know that this "artificially generated line" actually belongs to the previous observed code line
+      const number = +lineMarkers[i].textContent.trim();
+      lineNumbers[i] = !number ? lineNumbers[i - 1] : number;
     }
-  });
 
+    return lineNumbers;
+  };
+
+  let lineNumbers = extractLineNumbersFromLineMarkers(lineMarkers);
+  // As code lines are removed from the editor DOM content once it is scrolled down, the first few lines might be missing
+  // could not figure out how to scroll up in editor (only scrolling down works lol), so best I can do is show a warning
+  if (!(lineNumbers[0] <= 1)) {
+    showWarning(
+      `Editor not scrolled to top, code before line ${lineNumbers[0]} will not be copied`
+    );
+  }
+
+  const linesContainer = selectElements('.view-lines')[0];
   const editorLines =
-    editorLineNumbers.length == 0
-      ? []
-      : new Array(editorLineNumbers.at(-1) + 1).fill('');
-  getTextContents('.view-line>span', editor, false).forEach(
-    (lineContent, i) => {
-      const codeLine = editorLineNumbers[i];
-      editorLines[codeLine] += lineContent;
-    }
+    lineNumbers.length == 0 ? [] : new Array(lineNumbers.at(-1) + 1).fill('');
+
+  // the lines in the editor might contain "artificial line breaks", as explained above
+  // we need to assign them to the correct "actual editor lines"
+  const editorLinesUnprocessed = Array.from(linesContainer.children);
+  editorLinesUnprocessed.sort(compareElementYPos);
+
+  // divider between code editor and console -> lower border for the code editor viewport
+  const editorViewportBottom = selectSingleElement(
+    '.lm_splitter.lm_vertical .lm_drag_handle'
   );
 
+  const editorWindow = selectElements('.overflow-guard')[0];
+
+  if (isAboveOrOverlapping(editorViewportBottom, lineMarkers.at(-1))) {
+    // some parts of the code are still "unseen" -> we need to scroll all the remaining stuff into view
+    let y = 0;
+
+    while (isAboveOrOverlapping(editorViewportBottom, lineMarkers.at(-1))) {
+      y += 50;
+      editorWindow.scrollTop = y;
+
+      // TODO: think about better approach for this
+      const newLineNumbersAdded = () =>
+        new Promise(resolve => {
+          const newLineMarkerObs = new MutationObserver((recs, obs) => {
+            recs.forEach(rec => {
+              const newLineMarkers = Array.from(rec.addedNodes);
+              if (newLineMarkers.length > 0) {
+                lineMarkers.push(...newLineMarkers); // don't forget to destructure lol
+                lineMarkers.sort(compareElementYPos);
+                lineNumbers = extractLineNumbersFromLineMarkers(lineMarkers);
+              }
+            });
+            obs.disconnect();
+            resolve();
+          });
+
+          newLineMarkerObs.observe(lineMarkerContainer, { childList: true });
+        });
+
+      const newLinesAdded = () =>
+        new Promise(resolve => {
+          const newLineObs = new MutationObserver((recs, obs) => {
+            recs.forEach(rec => {
+              const newLines = Array.from(rec.addedNodes);
+              if (newLines.length > 0) {
+                editorLinesUnprocessed.push(...newLines);
+                editorLinesUnprocessed.sort(compareElementYPos);
+              }
+            });
+            obs.disconnect();
+            resolve();
+          });
+
+          newLineObs.observe(linesContainer, { childList: true });
+        });
+
+      await Promise.all([newLineNumbersAdded(), newLinesAdded()]);
+    }
+  }
+
+  const addToEditorLines = (viewLine, viewLineIdx) => {
+    const lineContent = viewLine.textContent;
+    const codeLineIdx = lineNumbers[viewLineIdx] - 1; // subtract 1 as codeLines begin with 1 but array indices start with 0
+    if (editorLines[codeLineIdx] === undefined) {
+      editorLines[codeLineIdx] = '';
+    }
+    editorLines[codeLineIdx] += lineContent;
+  };
+
+  editorLinesUnprocessed.forEach(addToEditorLines);
+
   return editorLines;
+}
+
+// useful when DOM element ordering does NOT correspond to vertical position on page
+// e.g. as argument to Array.prototype.sort()
+function compareElementYPos(a, b) {
+  return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+}
+
+function isAboveOrOverlapping(domElementA, domElementB) {
+  const [a, b] = [domElementA, domElementB];
+  aTop = a.getBoundingClientRect().top;
+  bBottom = b.getBoundingClientRect().bottom;
+  return aTop <= bBottom;
 }
 
 function getLinkToNextSubExercise() {
@@ -1505,8 +1607,8 @@ function objToCssPropsAndValsStr(obj) {
     .join('\n');
 }
 
-function log(content) {
-  console.log('[DataCamp copy helper]', content);
+function log(...content) {
+  console.log('[DataCamp copy helper]', ...content);
 }
 
 window.addEventListener('load', run, { once: true });
