@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.6
+// @version      2.7
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -17,13 +17,14 @@ const taskAndSolutionHeadings = true; // whether fitting subheadings for differe
 // config for code exercises
 const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
 const copyRSessionCodeComments = false;
+const copyEmptyLines = true;
 const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
 const limitMaxLinesPerConsoleOut = true; // whether the maximum number of lines included when copying a single "thing" printed to the console should be limited when copying
 const maxLinesPerConsoleOut = 50; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
 const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
 const pasteSubExercisesTogether = true; // CAUTION: currently a bit buggy - try refreshing browser if it doesn't work first time! defines whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
-const IncludeConsoleOutInfoText = false;
+const IncludeConsoleOutInfoText = false; // Adds text indicating that the console output comes from R session on DataCamp, not local machine
 
 // TODO: remove this global const if/when refactoring the codebase
 const warningSnackbarId = 'copy-helper-warning-snackbar';
@@ -297,6 +298,25 @@ function removeComments(line) {
   return code;
 }
 
+function removeCommentsLinesStr(linesStr) {
+  const noCommentLines = linesStr.split('\n').map(line => {
+    if (line.trim().length === 0) {
+      // keep regular empty lines
+      return line;
+    } else {
+      const noCommentsLine = removeComments(line);
+      // if line consists of only comments, we get back empty string
+      if (noCommentsLine.trim().length === 0) {
+        // use null as indicator that line should be removed!
+        return null;
+      }
+      return noCommentsLine;
+    }
+  });
+
+  return noCommentLines.filter(l => l !== null).join('\n');
+}
+
 function extractComments(line) {
   const matchRes = line.match(/(.*(?<!["']))(#.*)/);
   if (!matchRes) {
@@ -557,17 +577,19 @@ async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
 
   if (editors.length > 1) {
     const editorLines = await getEditorCodeLines();
-
-    const editorLinesNoComments = editorLines.map(removeComments);
     const editorCodeCompressed = editorLines.join('').replace(/\s/g, '');
 
-    const code = getEditorCodeBlock(
-      (copyRSessionCodeComments ? editorLines : editorLinesNoComments)
-        .filter(l => l.trim().length > 0)
+    const codeWithComments = getEditorCodeBlock(
+      editorLines
+        .filter(l => copyEmptyLines || l.trim().length > 0)
         .join('\n')
         .replaceAll(' ', ' '), // for some reason, some weird ASCII character is used for spaces in code -> replace with regular space
       includeConsoleOutput
     );
+
+    const code = copyRSessionCodeComments
+      ? codeWithComments
+      : removeCommentsLinesStr(codeWithComments);
 
     if (submitCodeInEditor) {
       await submitAnswer();
