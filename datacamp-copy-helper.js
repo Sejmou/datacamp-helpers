@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.7
+// @version      2.7.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -509,6 +509,7 @@ output:
     toc: true # activate table of content
     toc_depth: 3
     number_sections: true
+urlcolor: blue
 ---
 
 ${getTextContent('.course__description')}
