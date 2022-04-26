@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.7
+// @version      2.7.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -247,7 +247,7 @@ async function answerSubmitted() {
 
   if (consoleWrapper) {
     return new Promise(resolve => {
-      const submitButtonObs = new MutationObserver((_, obs) => {
+      const submitButtonObs = new MutationObserver((recs, obs) => {
         // submit button is disabled once answer is submitted (but not immediately after submitting)
 
         // if the current exercise is an exercise without subexercises (or the last subexercise), we need to wait for the "continue" button to appear on the site
@@ -263,15 +263,45 @@ async function answerSubmitted() {
         if (isEnabled) {
           obs.disconnect();
 
-          const editor = selectElements('.monaco-editor')[0];
+          const editorWrapper = selectSingleElement('[id*=editorTab]');
 
-          // editor code for next exercise is not available immediately, it is added later; wait for first mutation in subTree!
-          const editorObs = new MutationObserver((_, obs) => {
-            obs.disconnect();
-            resolve();
+          // editor code for next exercise is not available immediately, it is added later
+          // we need to wait for all code lines to appear
+          // line numbers appear first, lines (.view-line containers) appear later, one-by-one
+          let totalLineCount = Number.MAX_VALUE;
+          let addedLinesCount = 0;
+          const editorWrapperObs = new MutationObserver((recs, obs) => {
+            if (addedLinesCount == totalLineCount) {
+              obs.disconnect();
+              resolve();
+              return;
+            }
+            recs.forEach(rec => {
+              if (rec.addedNodes?.length > 0) {
+                const lineNumbersAdded =
+                  rec.addedNodes[0].textContent.trim() === '1';
+                if (lineNumbersAdded) {
+                  totalLineCount = rec.addedNodes.length;
+                }
+                rec.addedNodes.forEach(el => {
+                  if (el.className.includes('view-line')) {
+                    addedLinesCount++;
+                    if (addedLinesCount === totalLineCount) {
+                      // for some reason, this line seems to never be reached in practice!?
+                      obs.disconnect();
+                      resolve();
+                      return;
+                    }
+                  }
+                });
+              }
+            });
           });
 
-          editorObs.observe(editor, { childList: true, subtree: true });
+          editorWrapperObs.observe(editorWrapper, {
+            childList: true,
+            subtree: true,
+          });
         }
       });
       submitButtonObs.observe(submitAnswerButton, {
@@ -347,12 +377,17 @@ function getTextContents(elementSelector, root = document, trim = true) {
   });
 }
 
-function selectSingleElement(selector, root = document) {
+function selectSingleElement(selector, root = document, warnIfNoMatch = true) {
   const matches = selectElements(selector, root);
 
   if (matches.length > 1) {
     alert(noLeadingWhitespace`Note to copy helper script developer:
       More than 1 element matches selector ${selector}!`);
+  }
+
+  if (warnIfNoMatch && matches.length == 0) {
+    alert(noLeadingWhitespace`Note to copy helper script developer:
+      No element matches selector ${selector}!`);
   }
 
   return matches[0];
@@ -509,6 +544,7 @@ output:
     toc: true # activate table of content
     toc_depth: 3
     number_sections: true
+urlcolor: blue
 ---
 
 ${getTextContent('.course__description')}
@@ -900,17 +936,37 @@ function getExerciseInstructions() {
 }
 
 function getSubExerciseInstructions(idx = 0) {
-  const instructionElements = selectElements(
-    '.exercise--instructions__content>*'
+  // two "sub-exercise layouts" are possible:
+  // 1. instructions for every step are listed in containers (one after the other)
+  // 2. only instructions for the current step are listed
+  //   to see instructions for next step:
+  //    * complete current exercise OR
+  //    * click link to next exercise (if available)
+
+  // if this container exists, we're dealing with case 1
+  const instructionsContainer = document.querySelector(
+    '.bullet-instructions-list'
   );
-  const currentInstructions =
-    instructionElements.length > 1
-      ? instructionElements[idx]
-      : instructionElements[0];
+
+  const currentInstructionEls = instructionsContainer
+    ? Array.from(
+        document.querySelectorAll(
+          '.bullet-instructions-list__instruction-content .exercise--instructions__content'
+        )[idx]?.children || []
+      )
+    : selectElements('.exercise--instructions__content>*');
+
+  log(currentInstructionEls);
+
+  const currentInstructions = currentInstructionEls
+    .map(HTMLTextLinksCodeToMarkdown)
+    .join('\n');
+
+  log(currentInstructions);
 
   return (
     ` ${idx + 1}.\n` +
-    HTMLTextLinksCodeToMarkdown(currentInstructions)
+    currentInstructions
       .split('\n')
       .map(line => '    ' + line)
       .join('\n') +
