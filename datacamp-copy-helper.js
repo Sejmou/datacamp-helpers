@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.7.2
+// @version      2.7.3
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -956,13 +956,9 @@ function getSubExerciseInstructions(idx = 0) {
       )
     : selectElements('.exercise--instructions__content>*');
 
-  log(currentInstructionEls);
-
   const currentInstructions = currentInstructionEls
     .map(HTMLTextLinksCodeToMarkdown)
     .join('\n');
-
-  log(currentInstructions);
 
   return (
     ` ${idx + 1}.\n` +
