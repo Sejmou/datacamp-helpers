@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.8
+// @version      2.9
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -25,6 +25,8 @@ const maxLinesPerConsoleOut = 20; // the maximum number of lines included when c
 const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
 const pasteSubExercisesTogether = true; // CAUTION: currently a bit buggy - try refreshing browser if it doesn't work first time! defines whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
 const IncludeConsoleOutInfoText = false; // Adds text indicating that the console output comes from R session on DataCamp, not local machine
+const wrapWideConsoleOutputLines = true;
+const maxConsoleOutLineWidth = 90; // recommended: 90 -> should be exactly width of regular R Markdown code cells
 
 // TODO: remove this global const if/when refactoring the codebase
 const warningSnackbarId = 'copy-helper-warning-snackbar';
@@ -890,6 +892,11 @@ function getConsoleOutput(editorCodeCompressed = '') {
 
   const coutStr = coutObjs
     .map(obj => {
+      if (wrapWideConsoleOutputLines) {
+        // split too wide lines across multiple lines
+        obj.content = wrapTooWideLines(obj.content, maxConsoleOutLineWidth);
+      }
+
       if (!limitMaxLinesPerConsoleOut) {
         return obj.content;
       }
@@ -899,14 +906,17 @@ function getConsoleOutput(editorCodeCompressed = '') {
       if (removedLineCount > 0) {
         linesWereTruncated = true;
         truncatedLines.push(
-          `... and ${removedLineCount} more lines (removed for readability reasons)`
+          `... (${removedLineCount} lines removed for readability reasons)`
         );
       }
       return truncatedLines.join('\n');
     })
     .filter(
-      // sometimes (but for some reason not always!?), final line (input for new code) without output is also included -> remove
-      (output, i, arr) => !(output.startsWith('>') && i === arr.length - 1)
+      (output, i, arr) =>
+        // remove empty lines
+        output.trim().length > 0 &&
+        // sometimes (but for some reason not always!?), final line (input for new code) without output is also included -> remove
+        !(output.startsWith('>') && i === arr.length - 1)
     )
     .join('\n\n')
     .trim(); // trim because we don't need empty lines in beginning or end of console output
@@ -920,7 +930,7 @@ function getConsoleOutput(editorCodeCompressed = '') {
         coutStr +
         '\n```' +
         (linesWereTruncated
-          ? `**Note:** Some parts of the output were very long. Each code output shown here was therefore limited to max. ${maxLinesPerConsoleOut} lines.\n`
+          ? `\n**Note:** Some parts of the output were very long. Each code output shown here was therefore limited to max. ${maxLinesPerConsoleOut} lines.\n`
           : '')
       : '';
 
@@ -933,6 +943,25 @@ function getConsoleOutput(editorCodeCompressed = '') {
   return [coutCodeBlock, plotInfoText]
     .filter(str => str.length > 0)
     .join('\n\n');
+}
+
+function wrapTooWideLines(linesStr, maxWidth) {
+  return linesStr
+    .split('\n')
+    .map(l => {
+      if (l.length <= maxWidth) {
+        return l;
+      }
+
+      const chunks = [];
+
+      for (let i = 0, lLength = l.length; i < lLength; i += maxWidth) {
+        chunks.push(l.substring(i, i + maxWidth));
+      }
+
+      return chunks.join('\n');
+    })
+    .join('\n');
 }
 
 function getExerciseInstructions() {
