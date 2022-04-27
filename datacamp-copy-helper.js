@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.9
+// @version      2.9.2
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -18,14 +18,14 @@ const taskAndSolutionHeadings = true; // whether fitting subheadings for differe
 const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
 const copyRSessionCodeComments = false;
 const copyEmptyLines = true;
-const copyEditorCodeFromConsoleOut = true; // whether editor code reappearing in the console output should also be copied - useful to keep track of what code produced what output
+const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied - useful to keep track of what code produced what output
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
 const limitMaxLinesPerConsoleOut = true; // whether the maximum number of lines included when copying a single "thing" printed to the console should be limited when copying
 const maxLinesPerConsoleOut = 20; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
 const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
 const pasteSubExercisesTogether = true; // CAUTION: currently a bit buggy - try refreshing browser if it doesn't work first time! defines whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
 const IncludeConsoleOutInfoText = false; // Adds text indicating that the console output comes from R session on DataCamp, not local machine
-const wrapWideConsoleOutputLines = true;
+const wideConsoleOutLinesStrategy = 'truncate'; // specify how to deal with console output that is too wide; options: 'wrap', 'truncate', 'none'
 const maxConsoleOutLineWidth = 90; // recommended: 90 -> should be exactly width of regular R Markdown code cells
 
 // TODO: remove this global const if/when refactoring the codebase
@@ -586,12 +586,12 @@ async function getExerciseContent(
   const hasSubexercises = subExIdx !== -1;
 
   if (!hasSubexercises) {
-    if (taskAndSolutionHeadings) exerciseBody += '\n### Task\n\n';
+    if (taskAndSolutionHeadings) exerciseBody += '### Task';
     exerciseBody += getExerciseInstructions();
-    if (taskAndSolutionHeadings) exerciseBody += '\n### Solution\n\n';
+    if (taskAndSolutionHeadings) exerciseBody += '### Solution\n\n';
     exerciseBody += await getExerciseCode(includeConsoleOutput, submitAnswer);
   } else {
-    if (taskAndSolutionHeadings) exerciseBody += '\n### Tasks\n\n';
+    if (taskAndSolutionHeadings) exerciseBody += '### Tasks';
     if (pasteSubExercisesTogether) {
       while (getLinkToNextSubExercise()) {
         exerciseBody += getSubExerciseInstructions(subExIdx);
@@ -607,7 +607,7 @@ async function getExerciseContent(
     exerciseBody += await getExerciseCode(includeConsoleOutput, submitAnswer);
   }
 
-  return exerciseIntro + '\n' + exerciseBody;
+  return exerciseIntro + '\n\n' + exerciseBody;
 }
 
 async function getExerciseCode(includeConsoleOutput, submitCodeInEditor) {
@@ -892,9 +892,11 @@ function getConsoleOutput(editorCodeCompressed = '') {
 
   const coutStr = coutObjs
     .map(obj => {
-      if (wrapWideConsoleOutputLines) {
+      if (wideConsoleOutLinesStrategy === 'wrap') {
         // split too wide lines across multiple lines
         obj.content = wrapTooWideLines(obj.content, maxConsoleOutLineWidth);
+      } else if (wideConsoleOutLinesStrategy === 'truncate') {
+        obj.content = truncateTooWideLines(obj.content, maxConsoleOutLineWidth);
       }
 
       if (!limitMaxLinesPerConsoleOut) {
@@ -964,6 +966,18 @@ function wrapTooWideLines(linesStr, maxWidth) {
     .join('\n');
 }
 
+function truncateTooWideLines(linesStr, maxWidth) {
+  return linesStr
+    .split('\n')
+    .map(l => {
+      if (l.length <= maxWidth) {
+        return l;
+      }
+      return l.substring(0, maxWidth + 1) + ' ...';
+    })
+    .join('\n');
+}
+
 function getExerciseInstructions() {
   const instructions = selectElements('.exercise--instructions>*')
     .map(el => {
@@ -985,7 +999,7 @@ function getExerciseInstructions() {
     })
     .join('\n');
 
-  return instructions + '\n\n';
+  return '\n' + instructions;
 }
 
 function getSubExerciseInstructions(idx = 0) {
@@ -1018,8 +1032,7 @@ function getSubExerciseInstructions(idx = 0) {
     currentInstructions
       .split('\n')
       .map(line => '    ' + line)
-      .join('\n') +
-    '\n\n'
+      .join('\n')
   );
 }
 
@@ -1074,7 +1087,7 @@ function multipleChoiceExerciseCrawler() {
   const heading = headingEl ? `## ${headingEl?.textContent}` : '';
   const descriptionParts = Array.from(headingEl?.nextSibling?.children || [])
     .map(el => HTMLTextLinksCodeToMarkdown(el))
-    .join('\n');
+    .join('\n\n');
 
   const options = selectElements('.dc-panel__body>*')
     .map(el => {
@@ -1086,7 +1099,7 @@ function multipleChoiceExerciseCrawler() {
     })
     .filter(el => !el.querySelector('[data-cy="submit-button"]')) // if query selector matches, element is container for 'submit answer' button - irrelevant when copying
     .map(el => HTMLTextLinksCodeToMarkdown(el))
-    .join('\n\n');
+    .join('\n');
 
   const solutionHeading = taskAndSolutionHeadings ? '### Solution' : '';
 
