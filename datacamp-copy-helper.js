@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.3
+// @version      2.9.4
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -836,15 +836,17 @@ function getConsoleOutput(editorCodeCompressed = '') {
       containsEditorCode: false,
     }));
 
-  if (copyOnlyConsoleOutOfCodeInEditor) {
-    coutObjs = filterRelevantItems(coutObjs, editorCodeCompressed);
+  coutObjs = processEditorCode(
+    coutObjs,
+    editorCodeCompressed,
+    copyOnlyConsoleOutOfCodeInEditor
+  );
+
+  if (!copyRSessionCodeComments) {
+    coutObjs = removeConsoleComments(coutObjs);
   }
 
   if (copyEditorCodeFromConsoleOut) {
-    if (!copyRSessionCodeComments) {
-      coutObjs = removeConsoleOutComments(coutObjs);
-    }
-
     // mark code that comes from editor (is input to console) with '> '
     coutObjs.forEach(obj => {
       if (obj.containsEditorCode) {
@@ -859,8 +861,6 @@ function getConsoleOutput(editorCodeCompressed = '') {
     coutObjs,
     wideConsoleOutLinesStrategy
   );
-
-  console.table(coutObjs);
 
   const coutStr = coutObjs.map(obj => obj.content).join('\n\n');
 
@@ -888,7 +888,7 @@ function getConsoleOutput(editorCodeCompressed = '') {
     .join('\n\n');
 }
 
-function removeConsoleOutComments(coutObjs) {
+function removeConsoleComments(coutObjs) {
   return coutObjs.filter(obj => {
     // we need to check for comments in the editor code from the console and filter them out
     if (obj.containsEditorCode) {
@@ -902,8 +902,11 @@ function removeConsoleOutComments(coutObjs) {
   });
 }
 
-function filterRelevantItems(coutObjs, editorCodeCompressed) {
-  // goal: Find index of last console output content that is relevant for copying; it should satisfy the following conditions:
+function processEditorCode(coutObjs, editorCodeCompressed, filter = true) {
+  // goal: Find index of last console output content that is relevant for copying and slice coutObjs accordingly, if filter is true
+  // if we don't find that index, we can also warn the user that the code was not found in the output
+
+  // For content to be relevant, it must satisfy the following conditions:
   // 1. content is identical to the beginning of the code in the editor (if whitespace and comments are removed in both) - only code from this line onwards can be relevant
   // 2. all editor lines should be included in the content of the console content following the content that was found
   let idxOfObjMarkingStartOfLastCodeOutput = -1; // -1 indicates "not found"
@@ -912,7 +915,6 @@ function filterRelevantItems(coutObjs, editorCodeCompressed) {
 
   for (let i = coutObjs.length - 1; i >= 0; i--) {
     const contentCompressed = coutObjs[i].contentCompressed;
-    if (!contentCompressed) continue; // empty lines are possible!
     if (remainingEditorCode.endsWith(contentCompressed)) {
       coutObjs[i].containsEditorCode = true;
       remainingEditorCode = remainingEditorCode.substring(
@@ -932,9 +934,10 @@ function filterRelevantItems(coutObjs, editorCodeCompressed) {
     );
   }
 
-  if (idxOfObjMarkingStartOfLastCodeOutput >= 0) {
+  if (filter && idxOfObjMarkingStartOfLastCodeOutput >= 0) {
     return coutObjs.slice(idxOfObjMarkingStartOfLastCodeOutput);
   }
+
   return coutObjs;
 }
 
