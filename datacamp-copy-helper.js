@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.10
+// @version      2.10.1
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -885,8 +885,6 @@ function createConsoleOutStrs(coutObjs, split) {
     return [coutObjs.map(obj => obj.content).join('\n\n')];
   }
 
-  console.table(coutObjs);
-
   const coutStrs = [];
 
   let i = 0;
@@ -905,8 +903,6 @@ function createConsoleOutStrs(coutObjs, split) {
       coutStrs[i] += '\n\n' + obj.content;
     }
   });
-
-  log(coutStrs);
 
   return coutStrs;
 }
