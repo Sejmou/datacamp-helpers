@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.7.3
+// @version      2.8
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -18,10 +18,10 @@ const taskAndSolutionHeadings = true; // whether fitting subheadings for differe
 const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
 const copyRSessionCodeComments = false;
 const copyEmptyLines = true;
-const copyEditorCodeFromConsoleOut = false; // whether editor code reappearing in the console output should also be copied
+const copyEditorCodeFromConsoleOut = true; // whether editor code reappearing in the console output should also be copied - useful to keep track of what code produced what output
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
 const limitMaxLinesPerConsoleOut = true; // whether the maximum number of lines included when copying a single "thing" printed to the console should be limited when copying
-const maxLinesPerConsoleOut = 50; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
+const maxLinesPerConsoleOut = 20; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
 const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
 const pasteSubExercisesTogether = true; // CAUTION: currently a bit buggy - try refreshing browser if it doesn't work first time! defines whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
 const IncludeConsoleOutInfoText = false; // Adds text indicating that the console output comes from R session on DataCamp, not local machine
@@ -814,28 +814,32 @@ function getEditorCodeBlock(code, evaluate) {
   return RCodeBlock;
 }
 
-function getConsoleOutput(editorsCodeCompressed = '') {
-  let RConsoleOutDivContents = getTextContents(
+function getConsoleOutput(editorCodeCompressed = '') {
+  const consoleOutDivContents = getTextContents(
     '[data-cy="console-editor"]>div>div>div'
   );
 
   // goal: Find index of last console div that is relevant for copying; it should satisfy the following conditions:
   // 1. content is identical to the beginning of the code in the editor (if whitespace and comments are removed in both) - only code from this line onwards can be relevant
-  // 2. all editor lines should be included in the code output lines
+  // 2. all editor lines should be included in the content of the console divs following the div that was found
   let idxOfDivMarkingStartOfLastCodeOutput = -1; // -1 indicates "not found"
 
-  const coutDivContentsCompressed = RConsoleOutDivContents.map(content =>
-    content.replace(/\s/g, '')
-  );
+  let coutObjs = consoleOutDivContents.map(content => ({
+    content,
+    contentCompressed: content.replace(/\s/g, ''),
+    containsEditorCode: false,
+  }));
 
-  let remainingEditorCode = editorsCodeCompressed;
-  for (let i = coutDivContentsCompressed.length - 1; i >= 0; i--) {
-    const content = coutDivContentsCompressed[i];
-    if (!content) continue; // empty lines are possible!
-    if (remainingEditorCode.endsWith(content)) {
+  let remainingEditorCode = editorCodeCompressed;
+
+  for (let i = coutObjs.length - 1; i >= 0; i--) {
+    const contentCompressed = coutObjs[i].contentCompressed;
+    if (!contentCompressed) continue; // empty lines are possible!
+    if (remainingEditorCode.endsWith(contentCompressed)) {
+      coutObjs[i].containsEditorCode = true;
       remainingEditorCode = remainingEditorCode.substring(
         0,
-        remainingEditorCode.lastIndexOf(content)
+        remainingEditorCode.lastIndexOf(contentCompressed)
       );
       if (!remainingEditorCode) {
         idxOfDivMarkingStartOfLastCodeOutput = i;
@@ -844,7 +848,7 @@ function getConsoleOutput(editorsCodeCompressed = '') {
     }
   }
 
-  if (editorsCodeCompressed && idxOfDivMarkingStartOfLastCodeOutput === -1) {
+  if (editorCodeCompressed && idxOfDivMarkingStartOfLastCodeOutput === -1) {
     showWarning(
       'The code you wrote was not found in the console output. Did you forget to run it?'
     );
@@ -854,32 +858,52 @@ function getConsoleOutput(editorsCodeCompressed = '') {
     copyOnlyConsoleOutOfCodeInEditor &&
     idxOfDivMarkingStartOfLastCodeOutput >= 0
   ) {
-    RConsoleOutDivContents = RConsoleOutDivContents.slice(
-      idxOfDivMarkingStartOfLastCodeOutput
-    );
+    coutObjs = coutObjs.slice(idxOfDivMarkingStartOfLastCodeOutput);
   }
 
-  if (!copyEditorCodeFromConsoleOut) {
-    //TODO: if motivated, handle cases where comments should or should not be removed in copied output...
-    RConsoleOutDivContents = RConsoleOutDivContents.filter(content => {
-      const contentCompressed = content.replaceAll(/\s/g, '');
-      return !editorsCodeCompressed.includes(contentCompressed); // keep only stuff that doesn't occur in code already
+  if (copyEditorCodeFromConsoleOut) {
+    if (!copyRSessionCodeComments) {
+      // we need to check for comments in the editor code from the console and filter them out
+      coutObjs = coutObjs.filter(obj => {
+        if (obj.containsEditorCode) {
+          obj.content = removeComments(obj.content);
+          // include output only if content not empty after removing comments
+          return obj.content.trim().length > 0;
+        }
+
+        // regular console output should always be included
+        return true;
+      });
+    }
+
+    // mark code that comes from editor (is input to console) with '> '
+    coutObjs.forEach(obj => {
+      if (obj.containsEditorCode) {
+        obj.content = '> ' + obj.content;
+      }
     });
+  } else {
+    coutObjs = coutObjs.filter(obj => !obj.containsEditorCode);
   }
 
   let linesWereTruncated = false;
 
-  const RConsoleOut = RConsoleOutDivContents.map(divLinesStr => {
-    if (!limitMaxLinesPerConsoleOut) {
-      return divLinesStr;
-    }
-    const lines = divLinesStr.split('\n');
-    const truncatedLines = lines.slice(0, maxLinesPerConsoleOut);
-    if (truncatedLines.length < lines.length) {
-      linesWereTruncated = true;
-    }
-    return truncatedLines.join('\n');
-  })
+  const coutStr = coutObjs
+    .map(obj => {
+      if (!limitMaxLinesPerConsoleOut) {
+        return obj.content;
+      }
+      const lines = obj.content.split('\n');
+      const truncatedLines = lines.slice(0, maxLinesPerConsoleOut);
+      const removedLineCount = lines.length - truncatedLines.length;
+      if (removedLineCount > 0) {
+        linesWereTruncated = true;
+        truncatedLines.push(
+          `... and ${removedLineCount} more lines (removed for readability reasons)`
+        );
+      }
+      return truncatedLines.join('\n');
+    })
     .filter(
       // sometimes (but for some reason not always!?), final line (input for new code) without output is also included -> remove
       (output, i, arr) => !(output.startsWith('>') && i === arr.length - 1)
@@ -887,13 +911,13 @@ function getConsoleOutput(editorsCodeCompressed = '') {
     .join('\n\n')
     .trim(); // trim because we don't need empty lines in beginning or end of console output
 
-  const RConsoleOutputCodeBlock =
-    RConsoleOut.length > 0
+  const coutCodeBlock =
+    coutStr.length > 0
       ? (IncludeConsoleOutInfoText
           ? 'The following output was produced in the R Session on DataCamp:\n'
           : '') +
         '```\n' +
-        RConsoleOut +
+        coutStr +
         '\n```' +
         (linesWereTruncated
           ? `**Note:** Some parts of the output were very long. Each code output shown here was therefore limited to max. ${maxLinesPerConsoleOut} lines.\n`
@@ -902,11 +926,11 @@ function getConsoleOutput(editorsCodeCompressed = '') {
 
   // if ggplot() is used in the plot, mention plot output that should be produced
   // TODO: if very motivated, check if ggplot() is actually called in the code, not just mentioned anywhere in the code (including comments)
-  const plotInfoText = editorsCodeCompressed.includes('ggplot(')
+  const plotInfoText = editorCodeCompressed.includes('ggplot(')
     ? 'The code creates the following plot:'
     : '';
 
-  return [RConsoleOutputCodeBlock, plotInfoText]
+  return [coutCodeBlock, plotInfoText]
     .filter(str => str.length > 0)
     .join('\n\n');
 }
