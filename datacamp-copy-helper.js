@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         DataCamp copy helper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.4
+// @version      2.10
 // @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
 // @author       You
 // @include      *.datacamp.com*
@@ -27,7 +27,7 @@ const pasteSubExercisesTogether = true; // CAUTION: possibly a bit buggy - try r
 const includeConsoleOutInfoText = false; // Adds text indicating that the console output comes from R session on DataCamp, not local machine
 const wideConsoleOutLinesStrategy = 'truncate'; // specify how to deal with console output that is too wide; options: 'wrap', 'truncate', 'none'
 const maxConsoleOutLineWidth = 90; // recommended: 90 -> should be exactly width of regular R Markdown code cells
-const splitConsoleOut = false; // whether a seperate code block is created for each code statement that causes some console output; if false, all console output is put into the same code block
+const splitConsoleOut = true; // whether a seperate code block should be created for each code statement that causes some console output; if false, all console output is put into the same code block; NOTE: currently only works if copyEditorCodeFromConsoleOut is also true
 
 // TODO: remove this global const if/when refactoring the codebase
 const warningSnackbarId = 'copy-helper-warning-snackbar';
@@ -857,25 +857,17 @@ function getConsoleOutput(editorCodeCompressed = '') {
     coutObjs = coutObjs.filter(obj => !obj.containsEditorCode);
   }
 
-  const linesWereTruncated = applyWrappingStrategy(
-    coutObjs,
-    wideConsoleOutLinesStrategy
-  );
+  applyWrappingStrategy(coutObjs, wideConsoleOutLinesStrategy);
 
-  const coutStr = coutObjs.map(obj => obj.content).join('\n\n');
+  const coutStrs = createConsoleOutStrs(coutObjs, splitConsoleOut);
 
-  const coutCodeBlock =
-    coutStr.length > 0
-      ? (includeConsoleOutInfoText
-          ? 'The following output was produced in the R Session on DataCamp:\n'
-          : '') +
-        '```\n' +
-        coutStr +
-        '\n```' +
-        (linesWereTruncated
-          ? `\n**Note:** Some parts of the output were very long. Each code output shown here was therefore limited to max. ${maxLinesPerConsoleOut} lines.\n`
-          : '')
-      : '';
+  const coutCodeBlockStrs = coutStrs
+    .map(coutStr => (coutStr.length > 0 ? '```\n' + coutStr + '\n```' : ''))
+    .join('\n\n');
+
+  const consoleOutInfoText = includeConsoleOutInfoText
+    ? 'The following output was produced in the R Session on DataCamp:\n'
+    : '';
 
   // if ggplot() is used in the plot, mention plot output that should be produced
   // TODO: if very motivated, check if ggplot() is actually called in the code, not just mentioned anywhere in the code (including comments)
@@ -883,9 +875,40 @@ function getConsoleOutput(editorCodeCompressed = '') {
     ? 'The code creates the following plot:'
     : '';
 
-  return [coutCodeBlock, plotInfoText]
+  return [consoleOutInfoText, coutCodeBlockStrs, plotInfoText]
     .filter(str => str.length > 0)
     .join('\n\n');
+}
+
+function createConsoleOutStrs(coutObjs, split) {
+  if (!split) {
+    return [coutObjs.map(obj => obj.content).join('\n\n')];
+  }
+
+  console.table(coutObjs);
+
+  const coutStrs = [];
+
+  let i = 0;
+  coutObjs.forEach((obj, j, arr) => {
+    if (
+      arr[j - 1] &&
+      !arr[j - 1].containsEditorCode &&
+      obj.containsEditorCode
+    ) {
+      i++;
+    }
+
+    if (!coutStrs[i]) {
+      coutStrs[i] = obj.content;
+    } else {
+      coutStrs[i] += '\n\n' + obj.content;
+    }
+  });
+
+  log(coutStrs);
+
+  return coutStrs;
 }
 
 function removeConsoleComments(coutObjs) {
