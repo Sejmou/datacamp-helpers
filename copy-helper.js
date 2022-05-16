@@ -1,16 +1,3 @@
-// ==UserScript==
-// @name         DataCamp copy helper
-// @namespace    http://tampermonkey.net/
-// @version      2.10.1
-// @description  Copies content from DataCamp courses into your clipboard (via button or Ctrl + Shift + C)
-// @author       You
-// @include      *.datacamp.com*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=datacamp.com
-// @grant        GM.setClipboard
-// @downloadURL  https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
-// @updateURL    https://raw.githubusercontent.com/Sejmou/userscripts/master/datacamp-copy-helper.js
-// ==/UserScript==
-
 // general config
 const taskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
 
@@ -127,7 +114,11 @@ async function run() {
   const copyFn = async () => {
     const pageCrawler = pageCrawlers.get(currentPage);
     const clipboardContent = await pageCrawler();
-    GM.setClipboard(clipboardContent);
+    // await chrome.runtime.sendMessage({
+    //   type: 'copyToClipboard',
+    //   data: clipboardContent,
+    // });
+    copyToClipboard(clipboardContent);
     showSnackbar(copyInfoSnackbarId, 'Copied R markdown to clipboard!');
   };
   btn.addEventListener('click', copyFn);
@@ -152,6 +143,19 @@ async function run() {
   addToDocumentBody(btn);
   addToDocumentBody(copyInfoSnackbar);
   addToDocumentBody(warningSnackbar);
+}
+
+// apparently only working solution to copy to clipboard from Chrome Extension: https://stackoverflow.com/a/22702538 https://stackoverflow.com/a/60349158
+function copyToClipboard(text) {
+  const ta = document.createElement('textarea');
+  ta.style.cssText =
+    'opacity:0; position:fixed; width:1px; height:1px; top:0; left:0;';
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  document.execCommand('copy');
+  ta.remove();
 }
 
 async function getCurrentPage() {
