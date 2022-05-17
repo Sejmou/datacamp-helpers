@@ -1,5 +1,12 @@
+import { multipleChoiceExerciseCrawler } from './page-crawlers/multiple-choice.js';
+import { dragDropExerciseCrawler } from './page-crawlers/drag-drop.js';
+import { overviewCrawler } from './page-crawlers/course-overview.js';
+import { videoPageCrawler } from './page-crawlers/video-page.js';
+import { videoIframeCrawler } from './page-crawlers/video-iframe.js';
+import { exerciseCrawler } from './page-crawlers/code-exercise.js';
+
 // general config
-const taskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
+export const taskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
 
 // config for code exercises
 const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
@@ -9,8 +16,8 @@ const copyEditorCodeFromConsoleOut = true; // whether editor code reappearing in
 const copyOnlyConsoleOutOfCodeInEditor = true; // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
 const limitMaxLinesPerConsoleOut = true; // whether the maximum number of lines included when copying a single "thing" printed to the console should be limited when copying
 const maxLinesPerConsoleOut = 20; // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
-const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
-const pasteSubExercisesTogether = true; // CAUTION: possibly a bit buggy - try refreshing browser if it doesn't work first time! defines whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
+export const submitAnswerOnCopy = true; // whether the answer should automatically be submitted before copying it
+export const pasteSubExercisesTogether = true; // CAUTION: possibly a bit buggy - try refreshing browser if it doesn't work first time! defines whether the instructions, code, and, optionally, output of all completed sub-exercises should be pasted together when copying (executing the code of each sub-exercise, too)
 const includeConsoleOutInfoText = false; // Adds text indicating that the console output comes from R session on DataCamp, not local machine
 const wideConsoleOutLinesStrategy = 'truncate'; // specify how to deal with console output that is too wide; options: 'wrap', 'truncate', 'none'
 const maxConsoleOutLineWidth = 90; // recommended: 90 -> should be exactly width of regular R Markdown code cells
@@ -364,7 +371,7 @@ function extractComments(line) {
   return comment;
 }
 
-function getTextContent(elementSelector, root = document, trim = true) {
+export function getTextContent(elementSelector, root = document, trim = true) {
   const textContent = selectSingleElement(elementSelector, root)?.textContent;
   if (trim) {
     return textContent?.trim();
@@ -400,7 +407,11 @@ function selectSingleElement(selector, root = document, warnIfNoMatch = true) {
   return matches[0];
 }
 
-function selectElements(selector, root = document, warnIfNoMatch = false) {
+export function selectElements(
+  selector,
+  root = document,
+  warnIfNoMatch = false
+) {
   const queryRoot = root.nodeName === 'IFRAME' ? root.contentWindow : root;
 
   const matches = Array.from(queryRoot.querySelectorAll(selector));
@@ -477,7 +488,7 @@ function startsWithWhitespace(str) {
   return /^\s/.test(str);
 }
 
-function HTMLTextLinksCodeToMarkdown(el) {
+export function HTMLTextLinksCodeToMarkdown(el) {
   const childNodes = Array.from(el?.childNodes || []);
   const textContent = el.textContent.trim();
   if (el.nodeName === 'PRE') {
@@ -529,48 +540,7 @@ function HTMLTextLinksCodeToMarkdown(el) {
     .replaceAll(/[\(] [`]/g, m => m[0] + m[2]);
 }
 
-function overviewCrawler() {
-  let chapters = selectElements('.chapter');
-  chapters = chapters.map(c => ({
-    title: getTextContent('.chapter__title', c),
-    description: getTextContent('.chapter__description', c),
-  }));
-
-  chapters = chapters.map(c => `# ${c.title}\n${c.description}`);
-
-  chapters = chapters.join('\n\n\n\n\n\n');
-
-  return `---
-title: 'Data Acquisition and Survey Methods (2022S) Exercise X: ${getTextContent(
-    '.header-hero__title'
-  )}'
-author: "Samo Kolter (1181909)"
-date: "\`r Sys.setlocale('LC_TIME', 'en_GB.UTF-8'); format(Sys.time(), '%d %B, %Y')\`"
-output: 
-  pdf_document:
-    toc: true # activate table of content
-    toc_depth: 3
-    number_sections: true
-urlcolor: blue
----
-
-${getTextContent('.course__description')}
-
-${chapters}
-`;
-}
-
-async function exerciseCrawler(includeConsoleOutput = false) {
-  const exerciseContent = await getExerciseContent(
-    includeConsoleOutput,
-    pasteSubExercisesTogether,
-    submitAnswerOnCopy
-  );
-
-  return exerciseContent;
-}
-
-async function getExerciseContent(
+export async function getExerciseContent(
   includeConsoleOutput = true,
   pasteSubExercisesTogether = true,
   submitAnswer = true
@@ -1081,113 +1051,7 @@ function getSubExerciseInstructions(idx = 0) {
   );
 }
 
-function dragDropExerciseCrawler() {
-  const exerciseTitle = `## ${getTextContent('.dc-panel__body h4')}`;
-
-  const [descContainer, instructionsContainer] = selectElements(
-    '.le-shared-sticky-header+div>div>div'
-  );
-
-  const exercisePars = selectElements('*', descContainer)
-    .map(p => HTMLTextLinksCodeToMarkdown(p))
-    .join('\n\n');
-
-  const instructionsSubheading = taskAndSolutionHeadings
-    ? '### Instructions'
-    : '';
-
-  const exerciseInstructions = selectElements('li', instructionsContainer)
-    .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
-    .join('\n');
-
-  const solutionSubheading = taskAndSolutionHeadings ? '### Solution' : '';
-
-  const dragdropExerciseContent = document.querySelector(
-    '[data-cy*="order-exercise"]'
-  )
-    ? getDragIntoOrderContent()
-    : getDragdropContent();
-
-  const rMarkdown = [
-    exerciseTitle,
-    exercisePars,
-    instructionsSubheading,
-    exerciseInstructions,
-    solutionSubheading,
-    dragdropExerciseContent,
-  ]
-    .filter(l => l.length > 0)
-    .join('\n\n');
-
-  if (submitAnswerOnCopy) {
-    const submitButton = document.querySelector('[data-cy="submit-button"]');
-    submitButton?.click();
-  }
-
-  return rMarkdown;
-}
-
-function multipleChoiceExerciseCrawler() {
-  const headingEl = document.querySelector('h1');
-  const heading = headingEl ? `## ${headingEl?.textContent}` : '';
-  const descriptionParts = Array.from(headingEl?.nextSibling?.children || [])
-    .map(el => HTMLTextLinksCodeToMarkdown(el))
-    .join('\n\n');
-
-  const options = selectElements('.dc-panel__body>*')
-    .map(el => {
-      if (el.nodeName !== 'UL') return el;
-      const copy = el.cloneNode(true);
-      // ul may have press [1], press [2] etc. option texts - irrelevant when copying!
-      copy.querySelectorAll('.dc-u-ifx').forEach(c => c.remove());
-      return copy;
-    })
-    .filter(el => !el.querySelector('[data-cy="submit-button"]')) // if query selector matches, element is container for 'submit answer' button - irrelevant when copying
-    .map(el => HTMLTextLinksCodeToMarkdown(el))
-    .join('\n');
-
-  const solutionHeading = taskAndSolutionHeadings ? '### Solution' : '';
-
-  if (submitAnswerOnCopy) {
-    const submitButton = document.querySelector('[data-cy="submit-button"]');
-    submitButton?.click();
-  }
-
-  return (
-    [heading, descriptionParts, options, solutionHeading]
-      .filter(l => l.length > 0)
-      .join('\n\n') + '\n'
-  );
-}
-
-function videoPageCrawler() {
-  const title = getTextContent('.exercise-area h1');
-  const transcriptElements = selectElements(
-    'section.vex-body>div[tabindex]>div>*',
-    document,
-    false
-  );
-  const transcriptContent = transcriptElements
-    .map(el => {
-      const textContentAsMarkdown = Array.from(el.childNodes)
-        .map(child => {
-          const textContent = child.textContent.trim();
-
-          if (child.nodeName === 'H2') {
-            return `### ${textContent}`;
-          } else {
-            return textContent + '\n';
-          }
-        })
-        .join('\n');
-      return textContentAsMarkdown;
-    })
-    .join('\n');
-
-  return `## ${title}\n${transcriptContent}`;
-}
-
-function getDragdropContent() {
+export function getDragdropContent() {
   const container = selectSingleElement('.drag-and-drop-exercise');
   if (!container) return null;
 
@@ -1233,7 +1097,7 @@ function twoDArrayFromColArrays(...colArrays) {
   return output;
 }
 
-function getDragIntoOrderContent() {
+export function getDragIntoOrderContent() {
   return (
     'The correct order is:\n\n' +
     getTextContents('[data-cy*="droppable-area"]>div')
@@ -1242,85 +1106,7 @@ function getDragIntoOrderContent() {
   );
 }
 
-function videoIframeCrawler(includeConsoleOutput) {
-  const slideContents = selectElements('.slide-content>div') //>*>div>div')
-    .map(el => {
-      const childNodes = Array.from(el.childNodes);
-      const sectionHeadingSlideH1El = el.querySelector('h1');
-      if (sectionHeadingSlideH1El) {
-        // section heading slide - only relevant element is the slide title
-        return `## ${sectionHeadingSlideH1El.textContent.trim()}`;
-      } else {
-        // regular slide
-        return childNodes
-          .map(c => {
-            if (c.nodeName === 'H2') {
-              // slide title
-              return `### ${c.textContent.trim()}\n`;
-            }
-            if (c.nodeName === 'DIV') {
-              // we can find actual slide content nested a few layers deeper
-              const content = selectElements('.dc-slide-region>div>*', c);
-              return content
-                .map(el => {
-                  if (
-                    el.nodeName === 'PRE' // code is always inside <code> tag wrapped by <pre>
-                  ) {
-                    if (
-                      includeConsoleOutput ||
-                      !el.className.includes('lang-out')
-                      //lang-out is for output code cells - we skip over them, except if explicitly included
-                    ) {
-                      return (
-                        '```' +
-                        `${
-                          el.className.includes('lang-r')
-                            ? `{r${includeConsoleOutput ? ', eval=FALSE' : ''}}`
-                            : ''
-                        }` +
-                        '\n' +
-                        el.textContent.trim() +
-                        '\n```'
-                      );
-                    }
-                    //lang-out is for output code cells - we skip over them, except if explicitly included
-                    return '';
-                  } else if (el.nodeName === 'UL') {
-                    return HTMLListToMarkdown(el) + '\n'; // need additional line break after lists in Markdown!
-                  } else {
-                    return HTMLTextLinksCodeToMarkdown(el);
-                  }
-                })
-                .join('\n');
-            } else {
-              // this should be the only two possible cases that are relevant/possible
-              // each regular slide should only contain single h2 and single div with bunch of other nested divs
-              return '';
-            }
-          })
-          .join('');
-      }
-    })
-    .filter((slide, i, slides) => slide !== slides[i - 1]) // remove slide pages that are exactly the same
-    .map((slide, i, slides) => {
-      const prevLines = slides[i - 1]?.split('\n');
-      if (!prevLines) return slide;
-
-      const currLines = slide.split('\n');
-      // first line of each slide's markdown is the heading
-      const headingsIdentical = prevLines[0] === currLines[0];
-
-      if (headingsIdentical) {
-        return currLines.slice(1).join('\n');
-      }
-      return slide;
-    })
-    .join('\n\n');
-
-  return `${slideContents}`;
-}
-
-function HTMLListToMarkdown(ul, indentLevel = 0) {
+export function HTMLListToMarkdown(ul, indentLevel = 0) {
   const childElements = Array.from(ul.children);
   return (
     '\n' +
