@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 2,
   "name": "DataCamp copy helper",
   "description": "Adds features to easily contents of courses on DataCamp",
   "version": "1.0",
@@ -8,16 +8,19 @@
     "48": "icon-48.png",
     "128": "icon-128.png"
   },
-  "action": {
+  "browser_action": {
     "default_icon": "icon-19.png",
     "default_popup": "popup.html"
   },
-  "permissions": ["activeTab", "clipboardWrite"],
+  "permissions": ["https://*.datacamp.com/*", "activeTab", "clipboardWrite"],
   "content_scripts": [
     {
       "matches": ["https://*.datacamp.com/*"],
       "js": ["copy-helper.js"],
       "all_frames": true
     }
-  ]
+  ],
+  "background": {
+    "scripts": ["hot-reload.js"]
+  }
 }
