@@ -4,19 +4,19 @@
   "description": "Adds features to easily contents of courses on DataCamp",
   "version": "1.0",
   "icons": {
-    "16": "icon-16.png",
-    "48": "icon-48.png",
-    "128": "icon-128.png"
+    "16": "img/icon-16.png",
+    "48": "img/icon-48.png",
+    "128": "img/icon-128.png"
   },
   "browser_action": {
-    "default_icon": "icon-19.png",
-    "default_popup": "popup.html"
+    "default_icon": "img/icon-19.png",
+    "default_popup": "popup/popup.html"
   },
   "permissions": ["https://*.datacamp.com/*", "activeTab", "clipboardWrite"],
   "content_scripts": [
     {
       "matches": ["https://*.datacamp.com/*"],
-      "js": ["copy-helper.js"],
+      "js": ["copy-helper/copy-helper.js"],
       "all_frames": true
     }
   ],
