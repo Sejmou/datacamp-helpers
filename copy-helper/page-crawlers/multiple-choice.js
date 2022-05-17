@@ -1,11 +1,9 @@
-import {
-  HTMLTextLinksCodeToMarkdown,
-  selectElements,
-  taskAndSolutionHeadings,
-  submitAnswerOnCopy,
-} from '../copy-helper.js';
+import { HTMLTextLinksCodeToMarkdown, selectElements } from '../copy-helper.js';
 
-export function multipleChoiceExerciseCrawler() {
+export function multipleChoiceExerciseCrawler(
+  submitAnswerOnCopy,
+  includeTaskAndSolutionHeadings
+) {
   const headingEl = document.querySelector('h1');
   const heading = headingEl ? `## ${headingEl?.textContent}` : '';
   const descriptionParts = Array.from(headingEl?.nextSibling?.children || [])
@@ -24,7 +22,7 @@ export function multipleChoiceExerciseCrawler() {
     .map(el => HTMLTextLinksCodeToMarkdown(el))
     .join('\n');
 
-  const solutionHeading = taskAndSolutionHeadings ? '### Solution' : '';
+  const solutionHeading = includeTaskAndSolutionHeadings ? '### Solution' : '';
 
   if (submitAnswerOnCopy) {
     const submitButton = document.querySelector('[data-cy="submit-button"]');

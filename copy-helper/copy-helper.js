@@ -6,7 +6,7 @@ import { videoIframeCrawler } from './page-crawlers/video-iframe.js';
 import { exerciseCrawler } from './page-crawlers/code-exercise.js';
 
 // general config
-export const taskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
+export const includeTaskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
 
 // config for code exercises
 const copyCodeOutputCheckboxInitState = true; // whether the checkbox for copying output of the code should be checked per default
@@ -78,44 +78,58 @@ export async function run() {
   // for this, we add a CSS class for the current page
   btn.classList.add(currentPage);
 
+  if (currentPage === 'video-iframe' || currentPage === 'exercise') {
+    const checkboxContainer = createConsoleOutputToggleCheckbox(
+      copyCodeOutputCheckboxInitState
+    );
+    addToDocumentBody(checkboxContainer);
+  }
+
   if (currentPage === 'video-iframe') {
     addSlideImageViewFeatures();
-  }
-
-  let exerciseCrawlerFn = exerciseCrawler;
-  let iFrameCrawlerFn = videoIframeCrawler;
-
-  if (currentPage === 'exercise') {
-    const checkboxContainer = createConsoleOutputToggleCheckbox();
-    addToDocumentBody(checkboxContainer);
-
-    exerciseCrawlerFn = async () => {
-      const includeConsoleOutput =
-        checkboxContainer.querySelector('input').checked;
-      return exerciseCrawler(includeConsoleOutput);
-    };
-  }
-
-  if (currentPage === 'video-iframe') {
-    const checkboxContainer = createConsoleOutputToggleCheckbox();
-    addToDocumentBody(checkboxContainer);
     checkboxContainer.classList.add('video-iframe');
-    checkboxContainer.querySelector('input').checked = true; // set true as default
-
-    iFrameCrawlerFn = () => {
-      const includeConsoleOutput =
-        checkboxContainer.querySelector('input').checked;
-      return videoIframeCrawler(includeConsoleOutput);
-    };
   }
 
   const pageCrawlers = new Map([
     ['overview', overviewCrawler],
-    ['exercise', exerciseCrawlerFn],
-    ['dragdrop-exercise', dragDropExerciseCrawler],
+    [
+      'exercise',
+      async () => {
+        const includeConsoleOutput =
+          checkboxContainer.querySelector('input').checked;
+        return exerciseCrawler(
+          includeConsoleOutput,
+          pasteSubExercisesTogether,
+          submitAnswerOnCopy,
+          includeTaskAndSolutionHeadings
+        );
+      },
+    ],
+    [
+      'dragdrop-exercise',
+      () =>
+        dragDropExerciseCrawler(
+          includeTaskAndSolutionHeadings,
+          submitAnswerOnCopy
+        ),
+    ],
     ['video', videoPageCrawler],
-    ['video-iframe', iFrameCrawlerFn],
-    ['mc-exercise', multipleChoiceExerciseCrawler],
+    [
+      'video-iframe',
+      () => {
+        const includeCodeOutput =
+          checkboxContainer.querySelector('input').checked;
+        return videoIframeCrawler(includeCodeOutput);
+      },
+    ],
+    [
+      'mc-exercise',
+      () =>
+        multipleChoiceExerciseCrawler(
+          submitAnswerOnCopy,
+          includeTaskAndSolutionHeadings
+        ),
+    ],
   ]);
 
   const copyFn = async () => {
@@ -543,10 +557,11 @@ export function HTMLTextLinksCodeToMarkdown(el) {
 export async function getExerciseContent(
   includeConsoleOutput = true,
   pasteSubExercisesTogether = true,
-  submitAnswer = true
+  submitAnswer = true,
+  includeTaskAndSolutionHeadings = true
 ) {
   const exerciseTitle = `## ${getTextContent('.exercise--title')}${
-    taskAndSolutionHeadings ? '\n### Exercise description' : ''
+    includeTaskAndSolutionHeadings ? '\n### Exercise description' : ''
   }`;
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
@@ -561,12 +576,12 @@ export async function getExerciseContent(
   const hasSubexercises = subExIdx !== -1;
 
   if (!hasSubexercises) {
-    if (taskAndSolutionHeadings) exerciseBody += '### Task';
+    if (includeTaskAndSolutionHeadings) exerciseBody += '### Task';
     exerciseBody += getExerciseInstructions();
-    if (taskAndSolutionHeadings) exerciseBody += '### Solution\n\n';
+    if (includeTaskAndSolutionHeadings) exerciseBody += '### Solution\n\n';
     exerciseBody += await getExerciseCode(includeConsoleOutput, submitAnswer);
   } else {
-    if (taskAndSolutionHeadings) exerciseBody += '### Tasks';
+    if (includeTaskAndSolutionHeadings) exerciseBody += '### Tasks';
     if (pasteSubExercisesTogether) {
       while (getLinkToNextSubExercise()) {
         exerciseBody += getSubExerciseInstructions(subExIdx);
@@ -1515,12 +1530,12 @@ function showSnackbar(id, text) {
   }
 }
 
-function createConsoleOutputToggleCheckbox() {
+function createConsoleOutputToggleCheckbox(initialState) {
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   const checkboxId = 'datacamp-copy-helper-checkbox';
   checkbox.id = checkboxId;
-  checkbox.checked = copyCodeOutputCheckboxInitState;
+  checkbox.checked = initialState;
 
   const label = document.createElement('label');
   label.htmlFor = checkboxId;

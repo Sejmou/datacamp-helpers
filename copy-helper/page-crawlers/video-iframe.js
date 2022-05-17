@@ -4,7 +4,7 @@ import {
   HTMLTextLinksCodeToMarkdown,
 } from '../copy-helper.js';
 
-export function videoIframeCrawler(includeConsoleOutput) {
+export function videoIframeCrawler(includeCodeOutput) {
   const slideContents = selectElements('.slide-content>div') //>*>div>div')
     .map(el => {
       const childNodes = Array.from(el.childNodes);
@@ -29,7 +29,7 @@ export function videoIframeCrawler(includeConsoleOutput) {
                     el.nodeName === 'PRE' // code is always inside <code> tag wrapped by <pre>
                   ) {
                     if (
-                      includeConsoleOutput ||
+                      includeCodeOutput ||
                       !el.className.includes('lang-out')
                       //lang-out is for output code cells - we skip over them, except if explicitly included
                     ) {
@@ -37,7 +37,7 @@ export function videoIframeCrawler(includeConsoleOutput) {
                         '```' +
                         `${
                           el.className.includes('lang-r')
-                            ? `{r${includeConsoleOutput ? ', eval=FALSE' : ''}}`
+                            ? `{r${includeCodeOutput ? ', eval=FALSE' : ''}}`
                             : ''
                         }` +
                         '\n' +

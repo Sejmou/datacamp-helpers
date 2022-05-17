@@ -2,13 +2,14 @@ import {
   getTextContent,
   selectElements,
   HTMLTextLinksCodeToMarkdown,
-  taskAndSolutionHeadings,
   getDragIntoOrderContent,
   getDragdropContent,
-  submitAnswerOnCopy,
 } from '../copy-helper.js';
 
-export function dragDropExerciseCrawler() {
+export function dragDropExerciseCrawler(
+  includeTaskAndSolutionHeadings,
+  submitAnswerOnCopy
+) {
   const exerciseTitle = `## ${getTextContent('.dc-panel__body h4')}`;
 
   const [descContainer, instructionsContainer] = selectElements(
@@ -19,7 +20,7 @@ export function dragDropExerciseCrawler() {
     .map(p => HTMLTextLinksCodeToMarkdown(p))
     .join('\n\n');
 
-  const instructionsSubheading = taskAndSolutionHeadings
+  const instructionsSubheading = includeTaskAndSolutionHeadings
     ? '### Instructions'
     : '';
 
@@ -27,7 +28,9 @@ export function dragDropExerciseCrawler() {
     .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
     .join('\n');
 
-  const solutionSubheading = taskAndSolutionHeadings ? '### Solution' : '';
+  const solutionSubheading = includeTaskAndSolutionHeadings
+    ? '### Solution'
+    : '';
 
   const dragdropExerciseContent = document.querySelector(
     '[data-cy*="order-exercise"]'

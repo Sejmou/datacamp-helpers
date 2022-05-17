@@ -1,14 +1,16 @@
-import {
-  getExerciseContent,
+import { getExerciseContent } from '../copy-helper.js';
+
+export async function exerciseCrawler(
+  includeConsoleOutput,
   pasteSubExercisesTogether,
   submitAnswerOnCopy,
-} from '../copy-helper.js';
-
-export async function exerciseCrawler(includeConsoleOutput = false) {
+  includeTaskAndSolutionHeadings
+) {
   const exerciseContent = await getExerciseContent(
     includeConsoleOutput,
     pasteSubExercisesTogether,
-    submitAnswerOnCopy
+    submitAnswerOnCopy,
+    includeTaskAndSolutionHeadings
   );
 
   return exerciseContent;
