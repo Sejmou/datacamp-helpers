@@ -12,16 +12,30 @@
     "default_icon": "img/icon-19.png",
     "default_popup": "popup/popup.html"
   },
-  "permissions": ["https://*.datacamp.com/*", "activeTab", "clipboardWrite"],
+  "permissions": [
+    "https://*.datacamp.com/*",
+    "activeTab",
+    "clipboardWrite"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://*.datacamp.com/*"],
-      "js": ["copy-helper/import-copy-helper.js"],
+      "matches": [
+        "https://*.datacamp.com/*"
+      ],
+      "js": [
+        "copy-helper/import-copy-helper.js"
+      ],
       "all_frames": true
     }
   ],
   "background": {
-    "scripts": ["hot-reload.js"]
+    "scripts": [
+      "hot-reload.js"
+    ]
   },
-  "web_accessible_resources": ["copy-helper/copy-helper.js"]
+  "web_accessible_resources": [
+    "copy-helper/copy-helper.js",
+    "copy-helper/import-copy-helper.js",
+    "copy-helper/overviewCrawler.js"
+  ]
 }

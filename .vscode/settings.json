@@ -1,0 +1,5 @@
+{
+  "javascript.preferences.importModuleSpecifierEnding": "js",
+  "js/ts.implicitProjectConfig.module": "ES6",
+  "typescript.preferences.importModuleSpecifierEnding": "js"
+}
