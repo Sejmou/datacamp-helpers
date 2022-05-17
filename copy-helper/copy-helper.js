@@ -19,7 +19,7 @@ const splitConsoleOut = true; // whether a seperate code block should be created
 // TODO: remove this global const if/when refactoring the codebase
 const warningSnackbarId = 'copy-helper-warning-snackbar';
 
-async function run() {
+export async function run() {
   const currentPage = await getCurrentPage();
   if (currentPage === 'other') {
     // nothing interesting to copy, just return directly!
@@ -1796,4 +1796,4 @@ function log(...content) {
   console.log('[DataCamp copy helper]', ...content);
 }
 
-window.addEventListener('load', run, { once: true });
+//window.addEventListener('load', run, { once: true });

@@ -16,11 +16,12 @@
   "content_scripts": [
     {
       "matches": ["https://*.datacamp.com/*"],
-      "js": ["copy-helper/copy-helper.js"],
+      "js": ["copy-helper/import-copy-helper.js"],
       "all_frames": true
     }
   ],
   "background": {
     "scripts": ["hot-reload.js"]
-  }
+  },
+  "web_accessible_resources": ["copy-helper/copy-helper.js"]
 }
