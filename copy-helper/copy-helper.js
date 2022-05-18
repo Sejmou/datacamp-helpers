@@ -973,7 +973,7 @@ export function twoDArrayFromColArrays(...colArrays) {
 
   const output = new Array(arrMaxLength);
 
-  for (i = 0; i < arrMaxLength; i++) {
+  for (let i = 0; i < arrMaxLength; i++) {
     const row = colArrays.map(arr => arr[i]).flat();
     output[i] = row;
   }

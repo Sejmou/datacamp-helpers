@@ -73,7 +73,7 @@ function getDragdropContent() {
   const sep = stringArrToMarkdownTableRow(headings.map(() => '---'));
 
   const contentCols = headings.map(h => {
-    contentContainer = h.parentNode;
+    const contentContainer = h.parentNode;
     return Array.from(contentContainer.querySelector('div').children).map(div =>
       div.textContent.trim()
     );
