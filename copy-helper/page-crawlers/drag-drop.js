@@ -1,11 +1,7 @@
-import {
-  HTMLTextLinksCodeToMarkdown,
-  getDragIntoOrderContent,
-  twoDArrayFromColArrays,
-  stringArrToMarkdownTableRow,
-} from '../copy-helper.js';
+import { HTMLTextLinksCodeToMarkdown } from '../copy-helper.js';
 import {
   getTextContent,
+  getTextContents,
   selectSingleElement,
   selectElements,
 } from '../util/dom.js';
@@ -83,4 +79,35 @@ function getDragdropContent() {
     return stringArrToMarkdownTableRow(col);
   });
   return [headerRow, sep, ...contentRows].join('\n');
+}
+
+function getDragIntoOrderContent() {
+  return (
+    'The correct order is:\n\n' +
+    getTextContents('[data-cy*="droppable-area"]>div')
+      .map((str, i) => ` ${i + 1}. ${str}`)
+      .join('\n')
+  );
+}
+
+function stringArrToMarkdownTableRow(strArr) {
+  return '| ' + strArr.join(' | ') + ' |';
+}
+
+function twoDArrayFromColArrays(...colArrays) {
+  let arrMaxLength = 0;
+  colArrays.forEach(arr => {
+    if (arr.length > arrMaxLength) {
+      arrMaxLength = arr.length;
+    }
+  });
+
+  const output = new Array(arrMaxLength);
+
+  for (let i = 0; i < arrMaxLength; i++) {
+    const row = colArrays.map(arr => arr[i]).flat();
+    output[i] = row;
+  }
+
+  return output;
 }

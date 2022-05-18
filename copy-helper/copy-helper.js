@@ -959,37 +959,6 @@ function getSubExerciseInstructions(idx = 0) {
   );
 }
 
-export function stringArrToMarkdownTableRow(strArr) {
-  return '| ' + strArr.join(' | ') + ' |';
-}
-
-export function twoDArrayFromColArrays(...colArrays) {
-  let arrMaxLength = 0;
-  colArrays.forEach(arr => {
-    if (arr.length > arrMaxLength) {
-      arrMaxLength = arr.length;
-    }
-  });
-
-  const output = new Array(arrMaxLength);
-
-  for (let i = 0; i < arrMaxLength; i++) {
-    const row = colArrays.map(arr => arr[i]).flat();
-    output[i] = row;
-  }
-
-  return output;
-}
-
-export function getDragIntoOrderContent() {
-  return (
-    'The correct order is:\n\n' +
-    getTextContents('[data-cy*="droppable-area"]>div')
-      .map((str, i) => ` ${i + 1}. ${str}`)
-      .join('\n')
-  );
-}
-
 export function HTMLListToMarkdown(ul, indentLevel = 0) {
   const childElements = Array.from(ul.children);
   return (
