@@ -36,13 +36,14 @@
   "web_accessible_resources": [
     "copy-helper/copy-helper.js",
     "copy-helper/import-copy-helper.js",
-    "copy-helper/page-crawlers/code-exercise.js",
+    "copy-helper/page-crawlers/code-exercise/index.js",
     "copy-helper/page-crawlers/course-overview.js",
     "copy-helper/page-crawlers/drag-drop.js",
     "copy-helper/page-crawlers/multiple-choice.js",
     "copy-helper/page-crawlers/video-iframe.js",
     "copy-helper/page-crawlers/video-page.js",
     "copy-helper/util/dom.js",
+    "copy-helper/util/markdown-conversion.js",
     "copy-helper/util/strings.js"
   ]
 }
