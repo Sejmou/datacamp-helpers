@@ -1,10 +1,14 @@
 import {
-  getTextContent,
-  selectElements,
   HTMLTextLinksCodeToMarkdown,
   getDragIntoOrderContent,
-  getDragdropContent,
+  twoDArrayFromColArrays,
+  stringArrToMarkdownTableRow,
 } from '../copy-helper.js';
+import {
+  getTextContent,
+  selectSingleElement,
+  selectElements,
+} from '../util/dom.js';
 
 export function dragDropExerciseCrawler(
   includeTaskAndSolutionHeadings,
@@ -55,4 +59,28 @@ export function dragDropExerciseCrawler(
   }
 
   return rMarkdown;
+}
+
+function getDragdropContent() {
+  const container = selectSingleElement('.drag-and-drop-exercise');
+  if (!container) return null;
+
+  const headings = selectElements('.droppable-container h5', container);
+  const headerRow = stringArrToMarkdownTableRow(
+    headings.map(h => '**' + h.textContent.trim() + '**')
+  );
+
+  const sep = stringArrToMarkdownTableRow(headings.map(() => '---'));
+
+  const contentCols = headings.map(h => {
+    contentContainer = h.parentNode;
+    return Array.from(contentContainer.querySelector('div').children).map(div =>
+      div.textContent.trim()
+    );
+  });
+
+  const contentRows = twoDArrayFromColArrays(contentCols).map(col => {
+    return stringArrToMarkdownTableRow(col);
+  });
+  return [headerRow, sep, ...contentRows].join('\n');
 }

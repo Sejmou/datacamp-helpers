@@ -1,8 +1,8 @@
 import {
-  selectElements,
   HTMLListToMarkdown,
   HTMLTextLinksCodeToMarkdown,
 } from '../copy-helper.js';
+import { selectElements } from '../util/dom.js';
 
 export function videoIframeCrawler(includeCodeOutput) {
   const slideContents = selectElements('.slide-content>div') //>*>div>div')

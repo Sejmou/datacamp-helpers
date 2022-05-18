@@ -4,6 +4,12 @@ import { overviewCrawler } from './page-crawlers/course-overview.js';
 import { videoPageCrawler } from './page-crawlers/video-page.js';
 import { videoIframeCrawler } from './page-crawlers/video-iframe.js';
 import { exerciseCrawler } from './page-crawlers/code-exercise.js';
+import {
+  selectElements,
+  selectSingleElement,
+  getTextContent,
+  getTextContents,
+} from './util/dom.js';
 
 // general config
 export const includeTaskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
@@ -33,7 +39,7 @@ export async function run() {
     return;
   }
 
-  let elementsAddedToDocument = [];
+  const elementsAddedToDocument = [];
   const addToDocumentBody = el => {
     document.body.appendChild(el);
     elementsAddedToDocument.push(el);
@@ -78,16 +84,19 @@ export async function run() {
   // for this, we add a CSS class for the current page
   btn.classList.add(currentPage);
 
+  const checkboxId = 'datacamp-copy-helper-checkbox';
+
   if (currentPage === 'video-iframe' || currentPage === 'exercise') {
     const checkboxContainer = createConsoleOutputToggleCheckbox(
+      checkboxId,
       copyCodeOutputCheckboxInitState
     );
     addToDocumentBody(checkboxContainer);
-  }
 
-  if (currentPage === 'video-iframe') {
-    addSlideImageViewFeatures();
-    checkboxContainer.classList.add('video-iframe');
+    if (currentPage === 'video-iframe') {
+      addSlideImageViewFeatures();
+      checkboxContainer.classList.add('video-iframe');
+    }
   }
 
   const pageCrawlers = new Map([
@@ -96,7 +105,7 @@ export async function run() {
       'exercise',
       async () => {
         const includeConsoleOutput =
-          checkboxContainer.querySelector('input').checked;
+          document.getElementById(checkboxId).checked;
         return exerciseCrawler(
           includeConsoleOutput,
           pasteSubExercisesTogether,
@@ -117,8 +126,7 @@ export async function run() {
     [
       'video-iframe',
       () => {
-        const includeCodeOutput =
-          checkboxContainer.querySelector('input').checked;
+        const includeCodeOutput = document.getElementById(checkboxId).checked;
         return videoIframeCrawler(includeCodeOutput);
       },
     ],
@@ -135,10 +143,6 @@ export async function run() {
   const copyFn = async () => {
     const pageCrawler = pageCrawlers.get(currentPage);
     const clipboardContent = await pageCrawler();
-    // await chrome.runtime.sendMessage({
-    //   type: 'copyToClipboard',
-    //   data: clipboardContent,
-    // });
     copyToClipboard(clipboardContent);
     showSnackbar(copyInfoSnackbarId, 'Copied R markdown to clipboard!');
   };
@@ -385,121 +389,10 @@ function extractComments(line) {
   return comment;
 }
 
-export function getTextContent(elementSelector, root = document, trim = true) {
-  const textContent = selectSingleElement(elementSelector, root)?.textContent;
-  if (trim) {
-    return textContent?.trim();
-  } else {
-    return textContent;
-  }
-}
-
-function getTextContents(elementSelector, root = document, trim = true) {
-  return selectElements(elementSelector, root).map(el => {
-    const textContent = el.textContent;
-    if (trim) {
-      return textContent?.trim();
-    } else {
-      return textContent;
-    }
-  });
-}
-
-function selectSingleElement(selector, root = document, warnIfNoMatch = true) {
-  const matches = selectElements(selector, root);
-
-  if (matches.length > 1) {
-    alert(noLeadingWhitespace`Note to copy helper script developer:
-      More than 1 element matches selector ${selector}!`);
-  }
-
-  if (warnIfNoMatch && matches.length == 0) {
-    alert(noLeadingWhitespace`Note to copy helper script developer:
-      No element matches selector ${selector}!`);
-  }
-
-  return matches[0];
-}
-
-export function selectElements(
-  selector,
-  root = document,
-  warnIfNoMatch = false
-) {
-  const queryRoot = root.nodeName === 'IFRAME' ? root.contentWindow : root;
-
-  const matches = Array.from(queryRoot.querySelectorAll(selector));
-  if (warnIfNoMatch && matches.length === 0) {
-    alert(noLeadingWhitespace`Warning:
-    No element matches selector ${selector}!`);
-  }
-
-  return matches;
-}
-
 function addStyle(CSSText) {
   const style = document.createElement('style');
   style.appendChild(document.createTextNode(CSSText));
   document.querySelector('head').appendChild(style);
-}
-
-// for use with template strings
-// copied from https://muffinresearch.co.uk/removing-leading-whitespace-in-es6-template-strings/
-function singleLine(strings, ...values) {
-  // Interweave the strings with the
-  // substitution vars first.
-  let output = '';
-  for (let i = 0; i < values.length; i++) {
-    output += strings[i] + values[i];
-  }
-  output += strings[values.length];
-
-  // Split on newlines.
-  let lines = output.split(/(?:\r\n|\n|\r)/);
-
-  // Rip out the leading whitespace.
-  return lines
-    .map(line => {
-      return line.replace(/^\s+/gm, '');
-    })
-    .join(' ')
-    .trim();
-}
-
-// for use with template strings
-// adapted from https://muffinresearch.co.uk/removing-leading-whitespace-in-es6-template-strings/
-function noLeadingWhitespace(strings, ...values) {
-  // Interweave the strings with the
-  // substitution vars first.
-  let output = '';
-  for (let i = 0; i < values.length; i++) {
-    output += strings[i] + values[i];
-  }
-  output += strings[values.length];
-
-  // Split on newlines.
-  let lines = output.split(/(?:\r\n|\n|\r)/);
-
-  // Rip out the leading whitespace (except empty lines in beginning and end)
-  return lines
-    .map(line => {
-      return line.replace(/^\s+/gm, '');
-    })
-    .join('\n')
-    .trim();
-}
-
-function replaceAllExceptLast(str, search, replace) {
-  return str
-    .split(search)
-    .reduce(
-      (prev, curr, i, substrs) =>
-        prev + (i !== substrs.length - 1 ? replace : search) + curr
-    );
-}
-
-function startsWithWhitespace(str) {
-  return /^\s/.test(str);
 }
 
 export function HTMLTextLinksCodeToMarkdown(el) {
@@ -764,8 +657,8 @@ function compareElementYPos(a, b) {
 
 function isAboveOrOverlapping(domElementA, domElementB) {
   const [a, b] = [domElementA, domElementB];
-  aTop = a.getBoundingClientRect().top;
-  bBottom = b.getBoundingClientRect().bottom;
+  const aTop = a.getBoundingClientRect().top;
+  const bBottom = b.getBoundingClientRect().bottom;
   return aTop <= bBottom;
 }
 
@@ -1066,35 +959,11 @@ function getSubExerciseInstructions(idx = 0) {
   );
 }
 
-export function getDragdropContent() {
-  const container = selectSingleElement('.drag-and-drop-exercise');
-  if (!container) return null;
-
-  const headings = selectElements('.droppable-container h5', container);
-  const headerRow = stringArrToMarkdownTableRow(
-    headings.map(h => '**' + h.textContent.trim() + '**')
-  );
-
-  const sep = stringArrToMarkdownTableRow(headings.map(() => '---'));
-
-  const contentCols = headings.map(h => {
-    contentContainer = h.parentNode;
-    return Array.from(contentContainer.querySelector('div').children).map(div =>
-      div.textContent.trim()
-    );
-  });
-
-  const contentRows = twoDArrayFromColArrays(contentCols).map(col => {
-    return stringArrToMarkdownTableRow(col);
-  });
-  return [headerRow, sep, ...contentRows].join('\n');
-}
-
-function stringArrToMarkdownTableRow(strArr) {
+export function stringArrToMarkdownTableRow(strArr) {
   return '| ' + strArr.join(' | ') + ' |';
 }
 
-function twoDArrayFromColArrays(...colArrays) {
+export function twoDArrayFromColArrays(...colArrays) {
   let arrMaxLength = 0;
   colArrays.forEach(arr => {
     if (arr.length > arrMaxLength) {
@@ -1286,46 +1155,9 @@ function addSlideImageViewFeatures() {
         : 'close slide image view';
 
       if (showSlideImgs) {
-        selectElements('video').pause();
+        selectSingleElement('video').pause();
       }
     });
-
-    // TODO: make this work if motivated
-    // downloadSlideImgBtn.addEventListener('click', () => {
-    //   if (showSlideImgs) {
-    //     // slide images should actually always be visible if this button is clicked
-    //     const downloadImg = imgSrc => {
-    //       const link = document.createElement('a');
-    //       const filename = replaceAllExceptLast(
-    //         imgSrc.replace(/^.*[\\\/]/, ''), // https://stackoverflow.com/a/29182327/13727176
-    //         '.',
-    //         '_'
-    //       );
-    //       link.download = filename;
-    //       link.href = imgSrc;
-    //       link.click();
-    //     };
-
-    //     const currImg = imgs[currImgIdx];
-
-    //     if (currImg.src.startsWith('http')) {
-    //       // tried this to fetch images from other site and download
-    //       // doesn't work due to CORS issues - script origin is https://projector.datacamp.com, data origin is https://assets.datacamp.com/
-    //       // or is the issue that the client where javascript is executed has different origin? not sure
-    //       fetch(currImg.src)
-    //         .then(response => response.blob())
-    //         .then(data => {
-    //           const urlCreator = window.URL || window.webkitURL;
-    //           const imageData = urlCreator.createObjectURL(data);
-    //           console.log(imageData);
-    //           currImg.src = imageData;
-    //           downloadImg(currImg.src);
-    //         });
-    //     } else {
-    //       downloadImg(currImg.src);
-    //     }
-    //   }
-    // });
 
     document.body.addEventListener(
       'keydown',
@@ -1530,10 +1362,9 @@ function showSnackbar(id, text) {
   }
 }
 
-function createConsoleOutputToggleCheckbox(initialState) {
+function createConsoleOutputToggleCheckbox(checkboxId, initialState) {
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
-  const checkboxId = 'datacamp-copy-helper-checkbox';
   checkbox.id = checkboxId;
   checkbox.checked = initialState;
 
@@ -1596,5 +1427,3 @@ function objToCssPropsAndValsStr(obj) {
 function log(...content) {
   console.log('[DataCamp copy helper]', ...content);
 }
-
-//window.addEventListener('load', run, { once: true });

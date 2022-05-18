@@ -41,6 +41,8 @@
     "copy-helper/page-crawlers/drag-drop.js",
     "copy-helper/page-crawlers/multiple-choice.js",
     "copy-helper/page-crawlers/video-iframe.js",
-    "copy-helper/page-crawlers/video-page.js"
+    "copy-helper/page-crawlers/video-page.js",
+    "copy-helper/util/dom.js",
+    "copy-helper/util/strings.js"
   ]
 }

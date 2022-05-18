@@ -1,4 +1,5 @@
-import { HTMLTextLinksCodeToMarkdown, selectElements } from '../copy-helper.js';
+import { HTMLTextLinksCodeToMarkdown } from '../copy-helper.js';
+import { selectElements } from '../util/dom.js';
 
 export function multipleChoiceExerciseCrawler(
   submitAnswerOnCopy,
