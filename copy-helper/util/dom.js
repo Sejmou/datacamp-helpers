@@ -1,6 +1,6 @@
 import { noLeadingWhitespace } from './strings.js';
 
-// DOM element creation
+// --- DOM ---- element creation
 
 export function createButton(text, id = null, className = null) {
   const btn = document.createElement('button');
@@ -81,7 +81,7 @@ export function showSnackbar(id, text) {
   }
 }
 
-// DOM element selection
+// --- DOM ---- element selection
 
 export function getTextContent(elementSelector, root = document, trim = true) {
   const textContent = selectSingleElement(elementSelector, root)?.textContent;
@@ -139,7 +139,7 @@ export function selectElements(
   return matches;
 }
 
-// Other
+// --- Other ----
 
 export function addStyle(CSSText) {
   const style = document.createElement('style');
@@ -147,7 +147,19 @@ export function addStyle(CSSText) {
   document.querySelector('head').appendChild(style);
 }
 
-// Internal
+// useful when DOM element ordering does NOT correspond to vertical position on page
+// e.g. as argument to Array.prototype.sort()
+export function compareElementYPos(a, b) {
+  return a.getBoundingClientRect().top - b.getBoundingClientRect().top;
+}
+export function isAboveOrOverlapping(domElementA, domElementB) {
+  const [a, b] = [domElementA, domElementB];
+  const aTop = a.getBoundingClientRect().top;
+  const bBottom = b.getBoundingClientRect().bottom;
+  return aTop <= bBottom;
+}
+
+// --- Internal ---
 
 // creates new object from inputObj with only those props that are in the given array of props and have a truthy value in inputObj
 function createObjWithTruthyValuesForProps(props, inputObj) {

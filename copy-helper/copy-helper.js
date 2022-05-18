@@ -35,6 +35,7 @@ const codeExerciseConfig = {
 const warningSnackbarId = 'copy-helper-warning-snackbar';
 
 export async function run() {
+  console.log('run called');
   const currentPage = await getCurrentPage();
   if (currentPage === 'other') {
     // nothing interesting to copy, just return directly!
