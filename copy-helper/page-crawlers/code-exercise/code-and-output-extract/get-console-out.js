@@ -1,6 +1,6 @@
 import { getTextContents } from '../../../util/dom.js';
 import { showWarning } from '../../../copy-helper.js';
-import { removeComments } from './util.js';
+import { removeCommentsFromCodeLines } from './util.js';
 
 export function getConsoleOutput(
   editorCodeCompressed = '',
@@ -28,7 +28,7 @@ export function getConsoleOutput(
     .map(content => ({
       content,
       contentCompressed: content.replace(/\s/g, ''),
-      containsEditorCode: false,
+      type: 'output', // will be updated with correct in processEditorCode
     }));
 
   coutObjs = processEditorCode(
@@ -36,21 +36,6 @@ export function getConsoleOutput(
     editorCodeCompressed,
     copyOnlyConsoleOutOfCodeInEditor
   );
-
-  if (commentHandlingStrategy !== 'keep') {
-    coutObjs = removeConsoleComments(coutObjs);
-  }
-
-  if (copyEditorCodeFromConsoleOut) {
-    // mark code that comes from editor (is input to console) with '> '
-    coutObjs.forEach(obj => {
-      if (obj.containsEditorCode) {
-        obj.content = '> ' + obj.content;
-      }
-    });
-  } else if (commentHandlingStrategy !== 'unindented-to-text') {
-    coutObjs = coutObjs.filter(obj => !obj.containsEditorCode);
-  }
 
   applyWrappingStrategy(
     coutObjs,
@@ -60,7 +45,11 @@ export function getConsoleOutput(
     maxConsoleOutLineWidth
   );
 
-  const coutCodeBlockStrs = createConsoleOutBlockStrs(coutObjs);
+  const coutCodeBlockStrs = createConsoleOutBlockStrs(
+    coutObjs,
+    commentHandlingStrategy,
+    copyEditorCodeFromConsoleOut
+  );
 
   const consoleOutInfoText = includeConsoleOutInfoText
     ? 'The following output was produced in the R Session on DataCamp:\n'
@@ -91,7 +80,7 @@ function processEditorCode(coutObjs, editorCodeCompressed, filter = true) {
   for (let i = coutObjs.length - 1; i >= 0; i--) {
     const contentCompressed = coutObjs[i].contentCompressed;
     if (remainingEditorCode.endsWith(contentCompressed)) {
-      coutObjs[i].containsEditorCode = true;
+      coutObjs[i].type = 'code';
       remainingEditorCode = remainingEditorCode.substring(
         0,
         remainingEditorCode.lastIndexOf(contentCompressed)
@@ -114,20 +103,6 @@ function processEditorCode(coutObjs, editorCodeCompressed, filter = true) {
   }
 
   return coutObjs;
-}
-
-function removeConsoleComments(coutObjs) {
-  return coutObjs.filter(obj => {
-    // we need to check for comments in the editor code from the console and filter them out
-    if (obj.containsEditorCode) {
-      obj.content = removeComments(obj.content);
-      // include output only if content not empty after removing comments
-      return obj.content.trim().length > 0;
-    }
-
-    // regular console output should always be included
-    return true;
-  });
 }
 
 function applyWrappingStrategy(
@@ -195,15 +170,22 @@ function truncateTooWideLines(linesStr, maxWidth) {
     .join('\n');
 }
 
-function createConsoleOutBlockStrs(coutObjs) {
+function createConsoleOutBlockStrs(
+  coutObjs,
+  commentHandlingStrategy,
+  copyEditorCodeFromConsoleOut
+) {
   // goal: group into consecutive blocks of code/non-code blocks
   const coutObjsGrouped = [];
 
   coutObjs.forEach(obj => {
-    const containsCode = obj.containsEditorCode;
-    if (containsCode) {
-      // remove leading '> '
-      obj.content = obj.content.replace('> ', '');
+    if (
+      commentHandlingStrategy === 'unindented-to-text' &&
+      obj.type === 'code' &&
+      obj.content.startsWith('#')
+    ) {
+      obj.content = obj.content.replace(/#\s*/, '');
+      obj.type = 'text';
     }
 
     const prevObj = coutObjsGrouped.at(-1);
@@ -211,25 +193,36 @@ function createConsoleOutBlockStrs(coutObjs) {
       coutObjsGrouped.push(obj);
       return;
     }
-    console.log(obj);
 
-    const prevContainsCode = prevObj.containsEditorCode;
-    console.log(containsCode, prevContainsCode);
-    if (containsCode === prevContainsCode) {
-      prevObj.content += (!containsCode ? '\n\n' : '\n') + obj.content;
+    const prevType = prevObj.type;
+    console.log(obj.type, prevType);
+    if (obj.type === prevType) {
+      prevObj.content += (obj.type === 'output' ? '\n\n' : '\n') + obj.content;
     } else {
       coutObjsGrouped.push(obj);
     }
   });
 
   return coutObjsGrouped
-    .map(
-      obj =>
-        '```' +
-        (obj.containsEditorCode ? '{r, eval = FALSE}' : '') +
-        '\n' +
-        obj.content +
-        '\n```'
-    )
+    .filter(obj => copyEditorCodeFromConsoleOut || !obj.type === 'code')
+    .map(obj => {
+      if (obj.type === 'text') {
+        return obj.content;
+      } else {
+        // code
+        const content =
+          commentHandlingStrategy !== 'keep'
+            ? removeCommentsFromCodeLines(obj.content.split('\n')).join('\n')
+            : obj.content;
+
+        return (
+          '```' +
+          (obj.type === 'code' ? '{r, eval = FALSE}' : '') +
+          '\n' +
+          content +
+          '\n```'
+        );
+      }
+    })
     .join('\n\n');
 }
