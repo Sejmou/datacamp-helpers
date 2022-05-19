@@ -55,7 +55,13 @@ export async function extractCodeWithInstructionsAndOutput(
       )
     : '';
 
-  return [taskHeading, instructions, solutionHeading, codeMarkdown, consoleOut]
+  return [
+    taskHeading,
+    instructions,
+    solutionHeading,
+    !(includeConsoleOutput && copyEditorCodeFromConsoleOut) ? codeMarkdown : '',
+    consoleOut,
+  ]
     .filter(str => str.length > 0)
     .join('\n\n');
 }
