@@ -21,7 +21,6 @@ export async function extractCodeWithInstructionsAndOutput(
     maxLinesPerConsoleOut,
     wideConsoleOutLinesStrategy,
     maxConsoleOutLineWidth,
-    splitConsoleOutOnProducedResult,
     includeConsoleOutInfoText,
   } = config;
 
@@ -52,7 +51,6 @@ export async function extractCodeWithInstructionsAndOutput(
         maxLinesPerConsoleOut,
         wideConsoleOutLinesStrategy,
         maxConsoleOutLineWidth,
-        splitConsoleOutOnProducedResult,
         includeConsoleOutInfoText
       )
     : '';

@@ -11,7 +11,6 @@ export function getConsoleOutput(
   maxLinesPerConsoleOut,
   wideConsoleOutLinesStrategy,
   maxConsoleOutLineWidth,
-  splitConsoleOutOnProducedResult,
   includeConsoleOutInfoText
 ) {
   const consoleOutDivContents = getTextContents(
@@ -49,7 +48,7 @@ export function getConsoleOutput(
         obj.content = '> ' + obj.content;
       }
     });
-  } else {
+  } else if (commentHandlingStrategy !== 'unindented-to-text') {
     coutObjs = coutObjs.filter(obj => !obj.containsEditorCode);
   }
 
@@ -61,14 +60,7 @@ export function getConsoleOutput(
     maxConsoleOutLineWidth
   );
 
-  const coutStrs = createConsoleOutStrs(
-    coutObjs,
-    splitConsoleOutOnProducedResult
-  );
-
-  const coutCodeBlockStrs = coutStrs
-    .map(coutStr => (coutStr.length > 0 ? '```\n' + coutStr + '\n```' : ''))
-    .join('\n\n');
+  const coutCodeBlockStrs = createConsoleOutBlockStrs(coutObjs);
 
   const consoleOutInfoText = includeConsoleOutInfoText
     ? 'The following output was produced in the R Session on DataCamp:\n'
@@ -203,29 +195,41 @@ function truncateTooWideLines(linesStr, maxWidth) {
     .join('\n');
 }
 
-function createConsoleOutStrs(coutObjs, split) {
-  if (!split) {
-    return [coutObjs.map(obj => obj.content).join('\n\n')];
-  }
+function createConsoleOutBlockStrs(coutObjs) {
+  // goal: group into consecutive blocks of code/non-code blocks
+  const coutObjsGrouped = [];
 
-  const coutStrs = [];
-
-  let i = 0;
-  coutObjs.forEach((obj, j, arr) => {
-    if (
-      arr[j - 1] &&
-      !arr[j - 1].containsEditorCode &&
-      obj.containsEditorCode
-    ) {
-      i++;
+  coutObjs.forEach(obj => {
+    const containsCode = obj.containsEditorCode;
+    if (containsCode) {
+      // remove leading '> '
+      obj.content = obj.content.replace('> ', '');
     }
 
-    if (!coutStrs[i]) {
-      coutStrs[i] = obj.content;
+    const prevObj = coutObjsGrouped.at(-1);
+    if (!prevObj) {
+      coutObjsGrouped.push(obj);
+      return;
+    }
+    console.log(obj);
+
+    const prevContainsCode = prevObj.containsEditorCode;
+    console.log(containsCode, prevContainsCode);
+    if (containsCode === prevContainsCode) {
+      prevObj.content += (!containsCode ? '\n\n' : '\n') + obj.content;
     } else {
-      coutStrs[i] += '\n\n' + obj.content;
+      coutObjsGrouped.push(obj);
     }
   });
 
-  return coutStrs;
+  return coutObjsGrouped
+    .map(
+      obj =>
+        '```' +
+        (obj.containsEditorCode ? '{r, eval = FALSE}' : '') +
+        '\n' +
+        obj.content +
+        '\n```'
+    )
+    .join('\n\n');
 }

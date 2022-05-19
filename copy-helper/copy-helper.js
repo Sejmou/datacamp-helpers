@@ -20,7 +20,7 @@ const submitAnswerOnCopy = true; // whether the answer should automatically be s
 const codeExerciseConfig = {
   commentHandlingStrategy: 'unindented-to-text', // options: 'keep', 'remove', 'unindented-to-text'; the last option converts unindented comments to regular markdown text, splitting the code into several blocks, any other (indented) comments are removed
   copyEmptyLines: true,
-  copyEditorCodeFromConsoleOut: true, // whether editor code reappearing in the console output should also be copied - useful to keep track of what code produced what output
+  copyEditorCodeFromConsoleOut: true, // whether editor code reappearing in the console output should also be copied - useful to keep track of what code produced what output; effectively defaults to true if commentHandlingStrategy === 'unindented-to-text'
   copyOnlyConsoleOutOfCodeInEditor: true, // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
   limitMaxLinesPerConsoleOut: true, // whether the maximum number of lines included when copying a single "thing" printed to the console should be limited when copying
   maxLinesPerConsoleOut: 20, // the maximum number of lines included when copying a single "thing" printed to the console (if limitMaxLinesPerConsoleOut true)
@@ -28,7 +28,6 @@ const codeExerciseConfig = {
   includeConsoleOutInfoText: false, // Adds text indicating that the console output comes from R session on DataCamp, not local machine
   wideConsoleOutLinesStrategy: 'truncate', // specify how to deal with console output that is too wide; options: 'wrap', 'truncate', 'none'
   maxConsoleOutLineWidth: 90, // recommended: 90 -> should be exactly width of regular R Markdown code cells
-  splitConsoleOutOnProducedResult: true, // whether a seperate code block should be created for each code statement that produces some additional console output as a result; if false, all console output is put into the same code block; NOTE: currently only works if copyEditorCodeFromConsoleOut is also true
 };
 
 // TODO: remove this global const if/when refactoring the codebase
