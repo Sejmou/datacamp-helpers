@@ -26,7 +26,7 @@ export async function extractCodeWithInstructionsAndOutput(
   } = config;
 
   const taskHeading =
-    includeTaskAndSolutionHeadings && subExIdx !== null ? '### Task' : '';
+    includeTaskAndSolutionHeadings && subExIdx === null ? '### Task' : '';
 
   const instructions =
     subExIdx !== null
@@ -34,7 +34,7 @@ export async function extractCodeWithInstructionsAndOutput(
       : getExerciseInstructions();
 
   const solutionHeading =
-    includeTaskAndSolutionHeadings && subExIdx !== null ? '### Solution' : '';
+    includeTaskAndSolutionHeadings && subExIdx === null ? '### Solution' : '';
 
   const { codeMarkdown, codeCompressed } = await getExerciseCodeMarkdown(
     includeConsoleOutput,
