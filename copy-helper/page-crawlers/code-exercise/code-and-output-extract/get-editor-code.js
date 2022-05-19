@@ -103,7 +103,10 @@ function splitIntoCodeChunksWithUnindentedCommentTextBetween(
     .filter(obj => obj.lines.length > 0)
     .map(obj => {
       if (obj.type === 'code') {
-        return getEditorCodeBlock(obj.lines, addEvalFalse);
+        return getEditorCodeBlock(
+          removeCommentsFromCodeLines(obj.lines),
+          addEvalFalse
+        );
       } else {
         // comments converted to text -> output as is (not inside code block)
         return obj.lines.join('\n');
@@ -247,7 +250,6 @@ function getEditorCodeBlock(codeLines, addEvalFalse) {
     .reverse();
 
   const code = codeLinesWithoutEmptyLastLines.join('\n');
-
   const RCodeBlock =
     `\`\`\`{r${addEvalFalse ? ', eval=FALSE' : ''}}\n` + code + '\n```';
 

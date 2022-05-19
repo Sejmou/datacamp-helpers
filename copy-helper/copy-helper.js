@@ -18,7 +18,7 @@ const submitAnswerOnCopy = true; // whether the answer should automatically be s
 
 // config for code exercises
 const codeExerciseConfig = {
-  commentHandlingStrategy: 'unindented-to-text', // options: 'keep', 'remove', 'unindented-to-text'; the last option converts unindented comments to regular markdown text, splitting the code into several blocks
+  commentHandlingStrategy: 'unindented-to-text', // options: 'keep', 'remove', 'unindented-to-text'; the last option converts unindented comments to regular markdown text, splitting the code into several blocks, any other (indented) comments are removed
   copyEmptyLines: true,
   copyEditorCodeFromConsoleOut: true, // whether editor code reappearing in the console output should also be copied - useful to keep track of what code produced what output
   copyOnlyConsoleOutOfCodeInEditor: true, // whether all previous output of the console that is not related to last execution of code currently in editor should be excluded when copying
