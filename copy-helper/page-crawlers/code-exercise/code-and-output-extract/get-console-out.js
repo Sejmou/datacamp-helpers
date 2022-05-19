@@ -4,7 +4,7 @@ import { removeComments } from './util.js';
 
 export function getConsoleOutput(
   editorCodeCompressed = '',
-  copyRSessionCodeComments,
+  commentHandlingStrategy,
   copyEditorCodeFromConsoleOut,
   copyOnlyConsoleOutOfCodeInEditor,
   limitMaxLinesPerConsoleOut,
@@ -38,7 +38,7 @@ export function getConsoleOutput(
     copyOnlyConsoleOutOfCodeInEditor
   );
 
-  if (!copyRSessionCodeComments) {
+  if (commentHandlingStrategy !== 'keep') {
     coutObjs = removeConsoleComments(coutObjs);
   }
 

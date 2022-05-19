@@ -1,5 +1,5 @@
-export function removeCommentsLinesStr(linesStr) {
-  const noCommentLines = linesStr.split('\n').map(line => {
+export function removeCommentsFromCodeLines(codeLines) {
+  const noCommentLines = codeLines.map(line => {
     if (line.trim().length === 0) {
       // keep regular empty lines
       return line;

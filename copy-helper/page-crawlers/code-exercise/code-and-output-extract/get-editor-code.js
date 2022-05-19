@@ -1,15 +1,16 @@
+import { showWarning } from '../../../copy-helper.js';
 import {
   selectSingleElement,
   selectElements,
   compareElementYPos,
   isAboveOrOverlapping,
 } from '../../../util/dom.js';
-import { removeCommentsLinesStr } from './util.js';
+import { removeCommentsFromCodeLines } from './util.js';
 
-export async function getExerciseCode(
-  includeConsoleOutput,
+export async function getExerciseCodeMarkdown(
+  addEvalFalseToCodeBlock,
   submitCodeInEditor,
-  copyRSessionCodeComments,
+  commentHandlingStrategy,
   copyEmptyLines
 ) {
   const editors = selectElements('.monaco-editor');
@@ -18,24 +19,97 @@ export async function getExerciseCode(
     const editorLines = await getEditorCodeLines();
     const codeCompressed = editorLines.join('').replace(/\s/g, '');
 
-    const codeWithComments = getEditorCodeBlock(
-      editorLines
-        .filter(l => copyEmptyLines || l.trim().length > 0)
-        .join('\n')
-        .replaceAll(' ', ' '),
-      includeConsoleOutput
-    );
+    const codeLines = editorLines
+      .filter(l => copyEmptyLines || l.trim().length > 0)
+      .map(l => l.replaceAll(' ', ' '));
 
-    const code = copyRSessionCodeComments
-      ? codeWithComments
-      : removeCommentsLinesStr(codeWithComments);
+    const codeMarkdown = getCodeMarkdownFromLines(
+      codeLines,
+      commentHandlingStrategy,
+      addEvalFalseToCodeBlock
+    );
 
     if (submitCodeInEditor) {
       await submitAnswer();
     }
 
-    return { code, codeCompressed };
+    return { codeMarkdown, codeCompressed };
   } else return '';
+}
+
+function getCodeMarkdownFromLines(
+  codeLines,
+  commentHandlingStrategy,
+  addEvalFalse
+) {
+  switch (commentHandlingStrategy) {
+    case 'keep':
+      return getEditorCodeBlock(codeLines, addEvalFalse);
+    case 'remove':
+      return getEditorCodeBlock(
+        removeCommentsFromCodeLines(codeLines),
+        addEvalFalse
+      );
+    case 'unindented-to-text':
+      return splitIntoCodeChunksWithUnindentedCommentTextBetween(
+        codeLines,
+        addEvalFalse
+      );
+    default:
+      showWarning(
+        `Illegal value '${commentHandlingStrategy}' for comment handling strategy, defaulting to 'drop'`
+      );
+      return getEditorCodeBlock(
+        removeCommentsFromCodeLines(codeLines),
+        addEvalFalse
+      );
+  }
+}
+
+// horrific function name I know lol
+function splitIntoCodeChunksWithUnindentedCommentTextBetween(
+  codeLines,
+  addEvalFalse
+) {
+  const objs = codeLines.reduce(
+    (prevObjsArr, currLine) => {
+      const prevObj = prevObjsArr.at(-1);
+      const currType = currLine.startsWith('#') ? 'comment' : 'code';
+      const relevantContent =
+        currType === 'comment' ? currLine.replace(/#\s*/, '') : currLine;
+
+      if (prevObj.type === currType) {
+        prevObj.lines.push(relevantContent);
+        return prevObjsArr;
+      } else {
+        return [
+          ...prevObjsArr,
+          {
+            type: currType,
+            lines: [relevantContent],
+          },
+        ];
+      }
+    },
+    [
+      {
+        type: 'comment',
+        lines: [],
+      },
+    ]
+  );
+
+  return objs
+    .filter(obj => obj.lines.length > 0)
+    .map(obj => {
+      if (obj.type === 'code') {
+        return getEditorCodeBlock(obj.lines, addEvalFalse);
+      } else {
+        // comments converted to text -> output as is (not inside code block)
+        return obj.lines.join('\n');
+      }
+    })
+    .join('\n\n');
 }
 
 async function getEditorCodeLines() {
@@ -157,9 +231,25 @@ async function getEditorCodeLines() {
   return editorLines;
 }
 
-function getEditorCodeBlock(code, evaluate) {
+function getEditorCodeBlock(codeLines, addEvalFalse) {
+  // filter out any repeated empty lines at end of codeLines
+  let lastNonEmptyLineFound = false;
+  const codeLinesWithoutEmptyLastLines = codeLines
+    .reverse()
+    .filter(l => {
+      if (lastNonEmptyLineFound) return true;
+      if (l.trim().length > 0) {
+        lastNonEmptyLineFound = true;
+        return true;
+      }
+      return false;
+    })
+    .reverse();
+
+  const code = codeLinesWithoutEmptyLastLines.join('\n');
+
   const RCodeBlock =
-    `\`\`\`{r${evaluate ? ', eval=FALSE' : ''}}\n` + code + '\n```';
+    `\`\`\`{r${addEvalFalse ? ', eval=FALSE' : ''}}\n` + code + '\n```';
 
   return RCodeBlock;
 }

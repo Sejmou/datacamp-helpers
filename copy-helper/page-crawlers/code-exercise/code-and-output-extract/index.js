@@ -1,4 +1,4 @@
-import { getExerciseCode } from './get-editor-code.js';
+import { getExerciseCodeMarkdown } from './get-editor-code.js';
 import { getConsoleOutput } from './get-console-out.js';
 import {
   getSubExerciseInstructions,
@@ -13,7 +13,7 @@ export async function extractCodeWithInstructionsAndOutput(
     includeConsoleOutput,
     submitCodeInEditor,
     includeTaskAndSolutionHeadings,
-    copyRSessionCodeComments,
+    commentHandlingStrategy,
     copyEmptyLines,
     copyEditorCodeFromConsoleOut,
     copyOnlyConsoleOutOfCodeInEditor,
@@ -36,16 +36,16 @@ export async function extractCodeWithInstructionsAndOutput(
   const solutionHeading =
     includeTaskAndSolutionHeadings && subExIdx !== null ? '### Solution' : '';
 
-  const { code, codeCompressed } = await getExerciseCode(
+  const { codeMarkdown, codeCompressed } = await getExerciseCodeMarkdown(
     includeConsoleOutput,
     submitCodeInEditor,
-    copyRSessionCodeComments,
+    commentHandlingStrategy,
     copyEmptyLines
   );
   const consoleOut = includeConsoleOutput
     ? getConsoleOutput(
         codeCompressed,
-        copyRSessionCodeComments,
+        commentHandlingStrategy,
         copyEditorCodeFromConsoleOut,
         copyOnlyConsoleOutOfCodeInEditor,
         limitMaxLinesPerConsoleOut,
@@ -57,7 +57,7 @@ export async function extractCodeWithInstructionsAndOutput(
       )
     : '';
 
-  return [taskHeading, instructions, solutionHeading, code, consoleOut]
+  return [taskHeading, instructions, solutionHeading, codeMarkdown, consoleOut]
     .filter(str => str.length > 0)
     .join('\n\n');
 }
