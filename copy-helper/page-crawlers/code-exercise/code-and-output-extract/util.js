@@ -14,7 +14,7 @@ export function removeCommentsFromCodeLines(codeLines) {
     }
   });
 
-  return noCommentLines.filter(l => l !== null).join('\n');
+  return noCommentLines.filter(l => l !== null);
 }
 
 export function removeComments(line) {
