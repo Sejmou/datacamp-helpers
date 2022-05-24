@@ -46,10 +46,9 @@ export function getSubExerciseInstructions(idx, addHeading) {
           '.bullet-instructions-list__instruction-content .exercise--instructions__content'
         )[idx]?.children || []
       )
-    : [
-        ...selectElements('.exercise--instructions__content>*'),
-        ...selectElements('.exercise--instructions>*>*'),
-      ].filter(el => !el.className.includes('actions')); // filter out e.g. multiple choice actions (containing submit button, no relevant content)
+    : selectElements('.exercise--instructions>*>*').filter(
+        el => !el.className.includes('actions')
+      ); // filter out e.g. multiple choice actions (containing submit button, no relevant content)
 
   const currentInstructions = currentInstructionEls
     .map(HTMLTextLinksCodeToMarkdown)
