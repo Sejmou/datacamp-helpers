@@ -303,10 +303,14 @@ async function answerSubmitted() {
         // submit button is disabled once answer is submitted (but not immediately after submitting)
 
         // if the current exercise is an exercise without subexercises (or the last subexercise), we need to wait for the "continue" button to appear on the site
-        if (document.querySelector('.dc-completed__continue')) {
-          obs.disconnect();
-          resolve();
-        }
+        const completedObs = new MutationObserver((_, completedObs) => {
+          if (document.querySelector('.dc-completed')) {
+            completedObs.disconnect();
+            obs.disconnect();
+            resolve();
+          }
+        });
+        completedObs.observe(document.body, { subtree: true, childList: true });
 
         // otherwise, (if the submitted exercise is a subexercise, but not the last one), we need to wait for the button to become available again
         // only then the current exercise is submitted completely and the relevant output is in the console
@@ -336,7 +340,9 @@ async function answerSubmitted() {
                   totalLineCount = rec.addedNodes.length;
                 }
                 rec.addedNodes.forEach(el => {
-                  if (el.className.includes('view-line')) {
+                  // "fun fact": checking with className.includes() fails for SVG elements, so we instead use classList.contains()
+                  // reason: SVG elements have className property too, but it is defined differently: https://stackoverflow.com/a/37949156/13727176
+                  if (el.classList.contains('view-line')) {
                     addedLinesCount++;
                     if (addedLinesCount === totalLineCount) {
                       // for some reason, this line seems to never be reached in practice!?

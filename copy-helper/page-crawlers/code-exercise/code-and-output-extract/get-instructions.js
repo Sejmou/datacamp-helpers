@@ -46,11 +46,25 @@ export function getSubExerciseInstructions(idx) {
           '.bullet-instructions-list__instruction-content .exercise--instructions__content'
         )[idx]?.children || []
       )
-    : selectElements('.exercise--instructions__content>*');
+    : [
+        ...selectElements('.exercise--instructions__content>*'),
+        ...selectElements('.exercise--instructions>*>*'),
+      ].filter(el => !el.className.includes('actions')); // filter out e.g. multiple choice actions (containing submit button, no relevant content)
+
+  console.log('instruction elements', currentInstructionEls);
 
   const currentInstructions = currentInstructionEls
     .map(HTMLTextLinksCodeToMarkdown)
-    .join('\n');
+    .map(mdString =>
+      // Markdown headings don't work inside sub exercise instructions (as they are inside numbered list)
+      // replace them with bold text
+      mdString.replace(/#*(\s*)(.*)/, (str, spaceCapture, restCapture) =>
+        str.length === spaceCapture.length + restCapture.length
+          ? str
+          : `**${restCapture}**`
+      )
+    )
+    .join('\n\n');
 
   return (
     ` ${idx + 1}.\n` +

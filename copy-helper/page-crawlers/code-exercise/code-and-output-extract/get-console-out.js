@@ -92,6 +92,13 @@ function processEditorCode(coutObjs, editorCodeCompressed, filter = true) {
     }
   }
 
+  if (editorCodeCompressed.startsWith('DM.result')) {
+    // DataCamp adds such a line into code editor when submitting an answer to some MC question
+    // code editor content (and console output) is therefore irrelevant!
+    // set idxOfObjMarkingStartOfLastCodeOutput to length of coutObjs array to effectively not copy anything
+    idxOfObjMarkingStartOfLastCodeOutput = coutObjs.length;
+  }
+
   if (editorCodeCompressed && idxOfObjMarkingStartOfLastCodeOutput === -1) {
     showWarning(
       'The code you wrote was not found in the console output. Did you forget to run it?'
