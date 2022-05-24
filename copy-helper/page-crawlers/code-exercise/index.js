@@ -12,9 +12,7 @@ export async function exerciseCrawler(
   includeTaskAndSolutionHeadings,
   config
 ) {
-  const exerciseTitle = `## ${getTextContent('.exercise--title')}${
-    includeTaskAndSolutionHeadings ? '\n### Exercise description' : ''
-  }`;
+  const exerciseTitle = `## ${getTextContent('.exercise--title')}`;
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
     .map(p => HTMLTextLinksCodeToMarkdown(p))

@@ -29,7 +29,7 @@ export async function extractCodeWithInstructionsAndOutput(
 
   const instructions =
     subExIdx !== null
-      ? getSubExerciseInstructions(subExIdx)
+      ? getSubExerciseInstructions(subExIdx, includeTaskAndSolutionHeadings)
       : getExerciseInstructions();
 
   const solutionHeading =

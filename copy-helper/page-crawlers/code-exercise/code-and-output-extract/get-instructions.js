@@ -10,8 +10,8 @@ export function getExerciseInstructions() {
       return Array.from(el.children)
         .map(el => {
           const textContent = el.textContent.trim();
-          if (el.nodeName === 'H4') return `### ${textContent}`; // This is usually the "Question" heading - probably irrelevant for copying
-          if (el.nodeName === 'H5') return `#### ${textContent}`; // This is usually "Possible answers" heading - also probably irrelevant
+          if (el.nodeName === 'H4') return `### ${textContent}{-}`; // This is usually the "Question" heading (add "{-}" to disable numbering)
+          if (el.nodeName === 'H5') return `#### ${textContent}{-}`; // This is usually "Possible answers" heading
           if (el.nodeName === 'UL') return HTMLListToMarkdown(el) + '\n';
           if (
             el.className.includes('actions') ||
@@ -28,7 +28,7 @@ export function getExerciseInstructions() {
   return '\n' + instructions;
 }
 
-export function getSubExerciseInstructions(idx) {
+export function getSubExerciseInstructions(idx, addHeading) {
   // two "sub-exercise layouts" are possible:
   // 1. instructions for every step are listed in containers (one after the other)
   // 2. only instructions for the current step are listed
@@ -51,27 +51,14 @@ export function getSubExerciseInstructions(idx) {
         ...selectElements('.exercise--instructions>*>*'),
       ].filter(el => !el.className.includes('actions')); // filter out e.g. multiple choice actions (containing submit button, no relevant content)
 
-  console.log('instruction elements', currentInstructionEls);
-
   const currentInstructions = currentInstructionEls
     .map(HTMLTextLinksCodeToMarkdown)
-    .map(mdString =>
-      // Markdown headings don't work inside sub exercise instructions (as they are inside numbered list)
-      // replace them with bold text
-      mdString.replace(/#*(\s*)(.*)/, (str, spaceCapture, restCapture) =>
-        str.length === spaceCapture.length + restCapture.length
-          ? str
-          : `**${restCapture}**`
-      )
-    )
+    // add additional nesting to headings, suppress numbering (by adding {-} to the end)
+    .map(mdStr => (mdStr.startsWith('#') ? '#' + mdStr + '{-}' : mdStr))
     .join('\n\n');
 
   return (
-    ` ${idx + 1}.\n` +
-    currentInstructions
-      .split('\n')
-      .map(line => '    ' + line)
-      .join('\n')
+    (addHeading ? `### Subtask ${idx + 1}{-}\n` : '') + currentInstructions
   );
 }
 

@@ -202,7 +202,6 @@ function createConsoleOutBlockStrs(
     }
 
     const prevType = prevObj.type;
-    console.log(obj.type, prevType);
     if (obj.type === prevType) {
       prevObj.content += (obj.type === 'output' ? '\n\n' : '\n') + obj.content;
     } else {
