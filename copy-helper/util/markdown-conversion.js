@@ -1,3 +1,5 @@
+import { selectSingleElement, selectElements } from './dom.js';
+
 export function HTMLTextLinksCodeToMarkdown(el) {
   const childNodes = Array.from(el?.childNodes || []);
   const textContent = el.textContent.trim();
