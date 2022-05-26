@@ -1,6 +1,9 @@
 import { showInfo } from '../copy-helper.js';
-import { addStyle } from '../util/dom.js';
+import { addStyle, selectElements } from '../util/dom.js';
 import { copyToClipboard } from '../util/other.js';
+
+// config
+const autoPaste = true;
 
 const trackedCodeElements = [];
 const tooltipClassName = 'datacamp-copy-helper-tooltip';
@@ -24,7 +27,7 @@ addStyle(`
   
   
   /* basic styles */
-  width: 115px;
+  width: 120px;
   border-radius:2px;
   background:#000;
   color: #fff;
@@ -41,7 +44,14 @@ addStyle(`
 const clickHandler = evt => {
   const el = evt.target;
   copyToClipboard(el.textContent);
-  showInfo('Code copied to clipboard!');
+  if (autoPaste) {
+    selectElements('.inputarea.monaco-mouse-cursor-text')[0].focus();
+    document.execCommand('paste');
+    showInfo('Code pasted and copied to clipboard!');
+    evt.preventDefault();
+  } else {
+    showInfo('Code copied to clipboard!');
+  }
 };
 
 function addCopyFunctionalityToAddedCode(mutationRecords) {
@@ -57,7 +67,7 @@ function addCopyFunctionalityToAddedCode(mutationRecords) {
         }
 
         c.addEventListener('click', clickHandler);
-        c.dataset.text = 'click to copy';
+        c.dataset.text = autoPaste ? 'click to paste' : 'click to copy';
         c.classList.add(tooltipClassName);
 
         trackedCodeElements.push(c);

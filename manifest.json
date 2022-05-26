@@ -15,7 +15,8 @@
   "permissions": [
     "https://*.datacamp.com/*",
     "activeTab",
-    "clipboardWrite"
+    "clipboardWrite",
+    "clipboardRead"
   ],
   "content_scripts": [
     {
