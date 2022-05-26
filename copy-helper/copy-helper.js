@@ -11,6 +11,11 @@ import {
   showSnackbar,
 } from './util/dom.js';
 import { addSlideImageViewFeatures } from './other/slide-image-view-features.js';
+import { copyToClipboard } from './util/other.js';
+import {
+  disableCodeQuickCopy,
+  enableCodeQuickCopy,
+} from './other/code-quick-copy.js';
 
 // config for all types of exercises
 const includeTaskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
@@ -31,6 +36,7 @@ const codeExerciseConfig = {
 };
 
 // TODO: remove this global const if/when refactoring the codebase
+const infoSnackbarId = 'copy-helper-info-snackbar';
 const warningSnackbarId = 'copy-helper-warning-snackbar';
 
 export async function run() {
@@ -62,14 +68,15 @@ export async function run() {
     const handleExerciseChange = () => {
       // cleanup
       elementsAddedToDocument.forEach(el => el.remove());
+      disableCodeQuickCopy();
+
       // run script again to make sure elements relevant to new subpage are added
       run();
       clearInterval(detectionTimer); // after script was run on new page, remove exercise page change detection timer
     };
   }
 
-  const copyInfoSnackbarId = 'copy-helper-info-snackbar';
-  const copyInfoSnackbar = createSnackbar(copyInfoSnackbarId); // shows up when content is copied to clipboard
+  const copyInfoSnackbar = createSnackbar(infoSnackbarId); // shows up when content is copied to clipboard
   const warningSnackbar = createSnackbar(
     warningSnackbarId,
     {
@@ -87,6 +94,10 @@ export async function run() {
   btn.classList.add(currentPage);
 
   const checkboxId = 'datacamp-copy-helper-checkbox';
+
+  if (currentPage == 'exercise') {
+    enableCodeQuickCopy();
+  }
 
   if (currentPage === 'video-iframe' || currentPage === 'exercise') {
     const checkboxContainer = createConsoleOutputToggleCheckbox(checkboxId);
@@ -143,7 +154,7 @@ export async function run() {
     const pageCrawler = pageCrawlers.get(currentPage);
     const clipboardContent = await pageCrawler();
     copyToClipboard(clipboardContent);
-    showSnackbar(copyInfoSnackbarId, 'Copied R markdown to clipboard!');
+    showInfo('Copied R markdown to clipboard!');
   };
   btn.addEventListener('click', copyFn);
 
@@ -167,19 +178,6 @@ export async function run() {
   addToDocumentBody(btn);
   addToDocumentBody(copyInfoSnackbar);
   addToDocumentBody(warningSnackbar);
-}
-
-// apparently only working solution to copy to clipboard from Chrome Extension: https://stackoverflow.com/a/22702538 https://stackoverflow.com/a/60349158
-function copyToClipboard(text) {
-  const ta = document.createElement('textarea');
-  ta.style.cssText =
-    'opacity:0; position:fixed; width:1px; height:1px; top:0; left:0;';
-  ta.value = text;
-  document.body.appendChild(ta);
-  ta.focus();
-  ta.select();
-  document.execCommand('copy');
-  ta.remove();
 }
 
 async function getCurrentPage() {
@@ -277,6 +275,10 @@ function createCopyButton() {
   `);
 
   return btn;
+}
+
+export function showInfo(msg) {
+  showSnackbar(infoSnackbarId, msg);
 }
 
 export function showWarning(msg) {
