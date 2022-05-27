@@ -4,8 +4,9 @@ import { copyToClipboard } from '../util/other.js';
 
 // config
 const autoPaste = true;
+let enabled = false;
 
-const trackedCodeElements = [];
+let trackedCodeElements = [];
 const tooltipClassName = 'datacamp-copy-helper-tooltip';
 
 addStyle(`
@@ -54,39 +55,59 @@ const clickHandler = evt => {
   }
 };
 
-function addCopyFunctionalityToAddedCode(mutationRecords) {
-  mutationRecords.forEach(rec =>
-    rec.addedNodes.forEach(n => {
-      if (!(n instanceof HTMLElement)) {
-        return;
-      }
-      const addedCode = n.querySelectorAll('code') || [];
-      addedCode.forEach(c => {
-        if (trackedCodeElements.includes(c)) {
-          return;
-        }
+let sidebar;
 
-        c.addEventListener('click', clickHandler);
-        c.dataset.text = autoPaste ? 'click to paste' : 'click to copy';
-        c.classList.add(tooltipClassName);
-
-        trackedCodeElements.push(c);
-      });
-    })
-  );
+function checkForSidebarChange() {
+  const newSidebar = document.querySelector('.exercise--sidebar');
+  if (newSidebar && newSidebar !== sidebar) {
+    sidebar = newSidebar;
+    sidebarObs.observe(sidebar, { childList: true, subtree: true });
+    checkForAddedCode();
+  }
 }
 
-const codeAddedObs = new MutationObserver(addCopyFunctionalityToAddedCode);
+function checkForAddedCode() {
+  const codeElements = Array.from(sidebar?.querySelectorAll('code') || []);
+
+  const newElements = codeElements.filter(
+    el => !el.classList.contains(tooltipClassName)
+  );
+
+  if (enabled) {
+    addCopyFunctionality(newElements);
+  }
+
+  trackedCodeElements = codeElements;
+}
+
+const bodyObs = new MutationObserver(checkForSidebarChange);
+const sidebarObs = new MutationObserver(checkForAddedCode);
 
 export function enableCodeQuickCopy() {
-  trackedCodeElements.forEach(c => c.addEventListener('click', clickHandler));
-  codeAddedObs.observe(document.body, { childList: true, subtree: true });
+  enabled = true;
+  addCopyFunctionality(trackedCodeElements);
+  bodyObs.observe(document.body, { childList: true, subtree: true });
+  checkForSidebarChange();
 }
 
 export function disableCodeQuickCopy() {
-  trackedCodeElements.forEach(c => {
+  enabled = false;
+  removeCopyFunctionality(trackedCodeElements);
+  bodyObs.disconnect();
+  sidebarObs.disconnect();
+}
+
+function addCopyFunctionality(codeElements) {
+  codeElements.forEach(c => {
+    c.addEventListener('click', clickHandler);
+    c.dataset.text = autoPaste ? 'click to paste' : 'click to copy';
+    c.classList.add(tooltipClassName);
+  });
+}
+
+function removeCopyFunctionality(codeElements) {
+  codeElements.forEach(c => {
     c.removeEventListener('click', clickHandler);
     c.classList.remove(tooltipClassName);
   });
-  codeAddedObs.disconnect();
 }
