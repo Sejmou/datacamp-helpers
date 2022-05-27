@@ -122,11 +122,13 @@ function applyWrappingStrategy(
   let linesWereTruncated = false;
 
   coutObjs.forEach(obj => {
-    if (strategy === 'wrap') {
-      // split too wide lines across multiple lines
-      obj.content = wrapTooWideLines(obj.content, maxConsoleOutLineWidth);
-    } else if (strategy === 'truncate') {
-      obj.content = truncateTooWideLines(obj.content, maxConsoleOutLineWidth);
+    if (obj.type === 'output') {
+      if (strategy === 'wrap') {
+        // split too wide lines across multiple lines
+        obj.content = wrapTooWideLines(obj.content, maxConsoleOutLineWidth);
+      } else if (strategy === 'truncate') {
+        obj.content = truncateTooWideLines(obj.content, maxConsoleOutLineWidth);
+      }
     }
 
     if (limitMaxLinesPerConsoleOut) {
