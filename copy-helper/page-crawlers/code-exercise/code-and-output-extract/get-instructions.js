@@ -47,8 +47,12 @@ export function getSubExerciseInstructions(idx, addHeading) {
         )[idx]?.children || []
       )
     : selectElements('.exercise--instructions>*>*').filter(
-        el => !el.className.includes('actions')
-      ); // filter out e.g. multiple choice actions (containing submit button, no relevant content)
+        el =>
+          !(
+            el.className.includes('actions') ||
+            el.className.includes('dc-sct-feedback')
+          )
+      ); // filter out e.g. multiple choice actions (containing submit button, no relevant content) or feedback for incorrect submissions
 
   const currentInstructions = currentInstructionEls
     .map(HTMLTextLinksCodeToMarkdown)
