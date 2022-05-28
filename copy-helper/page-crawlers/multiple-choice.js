@@ -1,4 +1,4 @@
-import { HTMLTextLinksCodeToMarkdown } from '../util/markdown-conversion.js';
+import { HTMLElementToMarkdown } from '../util/markdown-conversion.js';
 import { selectElements } from '../util/dom.js';
 
 export function multipleChoiceExerciseCrawler(
@@ -8,7 +8,7 @@ export function multipleChoiceExerciseCrawler(
   const headingEl = document.querySelector('h1');
   const heading = headingEl ? `## ${headingEl?.textContent}` : '';
   const descriptionParts = Array.from(headingEl?.nextSibling?.children || [])
-    .map(el => HTMLTextLinksCodeToMarkdown(el))
+    .map(el => HTMLElementToMarkdown(el))
     .join('\n\n');
 
   const options = selectElements('.dc-panel__body>*')
@@ -20,7 +20,7 @@ export function multipleChoiceExerciseCrawler(
       return copy;
     })
     .filter(el => !el.querySelector('[data-cy="submit-button"]')) // if query selector matches, element is container for 'submit answer' button - irrelevant when copying
-    .map(el => HTMLTextLinksCodeToMarkdown(el))
+    .map(el => HTMLElementToMarkdown(el))
     .join('\n');
 
   const solutionHeading = includeTaskAndSolutionHeadings ? '### Solution' : '';

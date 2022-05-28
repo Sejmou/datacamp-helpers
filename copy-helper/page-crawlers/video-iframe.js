@@ -1,6 +1,6 @@
 import {
   HTMLListToMarkdown,
-  HTMLTextLinksCodeToMarkdown,
+  HTMLElementToMarkdown,
 } from '../util/markdown-conversion.js';
 import { selectElements } from '../util/dom.js';
 
@@ -50,7 +50,7 @@ export function videoIframeCrawler(includeCodeOutput) {
                   } else if (el.nodeName === 'UL') {
                     return HTMLListToMarkdown(el) + '\n'; // need additional line break after lists in Markdown!
                   } else {
-                    return HTMLTextLinksCodeToMarkdown(el);
+                    return HTMLElementToMarkdown(el);
                   }
                 })
                 .join('\n');

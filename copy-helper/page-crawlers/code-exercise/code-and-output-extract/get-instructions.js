@@ -1,6 +1,6 @@
 import { selectElements } from '../../../util/dom.js';
 import {
-  HTMLTextLinksCodeToMarkdown,
+  HTMLElementToMarkdown,
   HTMLListToMarkdown,
 } from '../../../util/markdown-conversion.js';
 
@@ -55,7 +55,7 @@ export function getSubExerciseInstructions(idx, addHeading) {
       ); // filter out e.g. multiple choice actions (containing submit button, no relevant content) or feedback for incorrect submissions
 
   const currentInstructions = currentInstructionEls
-    .map(HTMLTextLinksCodeToMarkdown)
+    .map(HTMLElementToMarkdown)
     // add additional nesting to headings, suppress numbering (by adding {-} to the end)
     .map(mdStr => (mdStr.startsWith('#') ? '#' + mdStr + '{-}' : mdStr))
     .join('\n\n');

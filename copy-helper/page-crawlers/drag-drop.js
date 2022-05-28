@@ -1,4 +1,4 @@
-import { HTMLTextLinksCodeToMarkdown } from '../util/markdown-conversion.js';
+import { HTMLElementToMarkdown } from '../util/markdown-conversion.js';
 import {
   getTextContent,
   getTextContents,
@@ -17,7 +17,7 @@ export function dragDropExerciseCrawler(
   );
 
   const exercisePars = selectElements('*', descContainer)
-    .map(p => HTMLTextLinksCodeToMarkdown(p))
+    .map(p => HTMLElementToMarkdown(p))
     .join('\n\n');
 
   const instructionsSubheading = includeTaskAndSolutionHeadings
@@ -25,7 +25,7 @@ export function dragDropExerciseCrawler(
     : '';
 
   const exerciseInstructions = selectElements('li', instructionsContainer)
-    .map(li => ' * ' + HTMLTextLinksCodeToMarkdown(li))
+    .map(li => ' * ' + HTMLElementToMarkdown(li))
     .join('\n');
 
   const solutionSubheading = includeTaskAndSolutionHeadings

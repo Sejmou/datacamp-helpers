@@ -1,5 +1,5 @@
 import { selectElements, getTextContent } from '../../util/dom.js';
-import { HTMLTextLinksCodeToMarkdown } from '../../util/markdown-conversion.js';
+import { HTMLElementToMarkdown } from '../../util/markdown-conversion.js';
 import { extractCodeWithInstructionsAndOutput } from './code-and-output-extract/index.js';
 import {
   getSubExerciseIndex,
@@ -15,7 +15,7 @@ export async function exerciseCrawler(
   const exerciseTitle = `## ${getTextContent('.exercise--title')}`;
 
   const exercisePars = selectElements('.exercise--assignment>div>*')
-    .map(p => HTMLTextLinksCodeToMarkdown(p))
+    .map(p => HTMLElementToMarkdown(p))
     .join('\n\n');
 
   const exerciseIntro = [exerciseTitle, exercisePars].join('\n');
