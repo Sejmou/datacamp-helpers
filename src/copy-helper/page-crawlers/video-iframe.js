@@ -1,8 +1,8 @@
 import {
   HTMLListToMarkdown,
   HTMLElementToMarkdown,
-} from '../util/markdown-conversion.js';
-import { selectElements } from '../util/dom.js';
+} from '../../util/markdown-conversion.js';
+import { selectElements } from '../../util/dom.js';
 
 export function videoIframeCrawler(includeCodeOutput) {
   const slideContents = selectElements('.slide-content>div') //>*>div>div')

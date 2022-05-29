@@ -24,14 +24,14 @@ async function main() {
   const manifestPath = 'manifest.json';
   const manifest = JSON.parse(readFileSync(manifestPath));
 
-  const copyHelperFilePaths = await getDirectories('copy-helper');
+  const moduleFilePaths = await getDirectories('src');
 
-  manifest.web_accessible_resources = copyHelperFilePaths;
+  manifest.web_accessible_resources = moduleFilePaths;
   // reason for weird-looking call to stringify() is pretty-printing: https://stackoverflow.com/a/5670892/13727176
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
   // as the file imports are often also wrong (missing .js extension), we also need to fix them:
-  const copyHelperFiles = copyHelperFilePaths.map(path => ({
+  const copyHelperFiles = moduleFilePaths.map(path => ({
     path,
     content: readFileSync(path, 'utf-8'),
   }));

@@ -1,4 +1,4 @@
-import { selectElements, getTextContent } from '../util/dom.js';
+import { selectElements, getTextContent } from '../../util/dom.js';
 
 export function overviewCrawler() {
   let chapters = selectElements('.chapter');

@@ -20,39 +20,33 @@
   ],
   "content_scripts": [
     {
-      "matches": [
-        "https://*.datacamp.com/*"
-      ],
-      "js": [
-        "copy-helper/import-copy-helper.js"
-      ],
+      "matches": ["https://*.datacamp.com/*"],
+      "js": ["src/import-modules.js"],
       "all_frames": true
     }
   ],
   "background": {
-    "scripts": [
-      "hot-reload.js"
-    ]
+    "scripts": ["hot-reload.js"]
   },
   "web_accessible_resources": [
-    "copy-helper/copy-helper.js",
-    "copy-helper/import-copy-helper.js",
-    "copy-helper/other/code-quick-copy.js",
-    "copy-helper/other/slide-image-view-features.js",
-    "copy-helper/page-crawlers/code-exercise/code-and-output-extract/get-console-out.js",
-    "copy-helper/page-crawlers/code-exercise/code-and-output-extract/get-editor-code.js",
-    "copy-helper/page-crawlers/code-exercise/code-and-output-extract/get-instructions.js",
-    "copy-helper/page-crawlers/code-exercise/code-and-output-extract/index.js",
-    "copy-helper/page-crawlers/code-exercise/code-and-output-extract/util.js",
-    "copy-helper/page-crawlers/code-exercise/index.js",
-    "copy-helper/page-crawlers/course-overview.js",
-    "copy-helper/page-crawlers/drag-drop.js",
-    "copy-helper/page-crawlers/multiple-choice.js",
-    "copy-helper/page-crawlers/video-iframe.js",
-    "copy-helper/page-crawlers/video-page.js",
-    "copy-helper/util/dom.js",
-    "copy-helper/util/markdown-conversion.js",
-    "copy-helper/util/other.js",
-    "copy-helper/util/strings.js"
+    "src/copy-helper/copy-helper.js",
+    "src/copy-helper/other/code-quick-copy.js",
+    "src/copy-helper/other/slide-image-view-features.js",
+    "src/copy-helper/page-crawlers/code-exercise/code-and-output-extract/get-console-out.js",
+    "src/copy-helper/page-crawlers/code-exercise/code-and-output-extract/get-editor-code.js",
+    "src/copy-helper/page-crawlers/code-exercise/code-and-output-extract/get-instructions.js",
+    "src/copy-helper/page-crawlers/code-exercise/code-and-output-extract/index.js",
+    "src/copy-helper/page-crawlers/code-exercise/code-and-output-extract/util.js",
+    "src/copy-helper/page-crawlers/code-exercise/index.js",
+    "src/copy-helper/page-crawlers/course-overview.js",
+    "src/copy-helper/page-crawlers/drag-drop.js",
+    "src/copy-helper/page-crawlers/multiple-choice.js",
+    "src/copy-helper/page-crawlers/video-iframe.js",
+    "src/copy-helper/page-crawlers/video-page.js",
+    "src/import-modules.js",
+    "src/util/dom.js",
+    "src/util/markdown-conversion.js",
+    "src/util/other.js",
+    "src/util/strings.js"
   ]
 }

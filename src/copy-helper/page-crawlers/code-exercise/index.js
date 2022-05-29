@@ -1,5 +1,5 @@
-import { selectElements, getTextContent } from '../../util/dom.js';
-import { HTMLElementToMarkdown } from '../../util/markdown-conversion.js';
+import { selectElements, getTextContent } from '../../../util/dom.js';
+import { HTMLElementToMarkdown } from '../../../util/markdown-conversion.js';
 import { extractCodeWithInstructionsAndOutput } from './code-and-output-extract/index.js';
 import {
   getSubExerciseIndex,

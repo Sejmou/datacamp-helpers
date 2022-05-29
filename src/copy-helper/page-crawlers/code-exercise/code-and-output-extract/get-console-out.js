@@ -1,4 +1,4 @@
-import { getTextContents } from '../../../util/dom.js';
+import { getTextContents } from '../../../../util/dom.js';
 import { showWarning } from '../../../copy-helper.js';
 import { removeCommentsFromCodeLines } from './util.js';
 

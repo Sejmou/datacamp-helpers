@@ -1,10 +1,10 @@
-import { HTMLElementToMarkdown } from '../util/markdown-conversion.js';
+import { HTMLElementToMarkdown } from '../../util/markdown-conversion.js';
 import {
   getTextContent,
   getTextContents,
   selectSingleElement,
   selectElements,
-} from '../util/dom.js';
+} from '../../util/dom.js';
 
 export function dragDropExerciseCrawler(
   includeTaskAndSolutionHeadings,

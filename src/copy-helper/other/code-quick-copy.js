@@ -1,6 +1,6 @@
 import { showInfo } from '../copy-helper.js';
-import { addStyle, selectElements } from '../util/dom.js';
-import { copyToClipboard } from '../util/other.js';
+import { addStyle, selectElements } from '../../util/dom.js';
+import { copyToClipboard } from '../../util/other.js';
 
 // config
 const autoPaste = true;

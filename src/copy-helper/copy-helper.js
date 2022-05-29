@@ -9,9 +9,9 @@ import {
   createButton,
   createSnackbar,
   showSnackbar,
-} from './util/dom.js';
+} from '../util/dom.js';
 import { addSlideImageViewFeatures } from './other/slide-image-view-features.js';
-import { copyToClipboard } from './util/other.js';
+import { copyToClipboard } from '../util/other.js';
 import {
   disableCodeQuickCopy,
   enableCodeQuickCopy,

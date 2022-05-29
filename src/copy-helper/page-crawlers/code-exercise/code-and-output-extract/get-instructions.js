@@ -1,8 +1,8 @@
-import { selectElements } from '../../../util/dom.js';
+import { selectElements } from '../../../../util/dom.js';
 import {
   HTMLElementToMarkdown,
   HTMLListToMarkdown,
-} from '../../../util/markdown-conversion.js';
+} from '../../../../util/markdown-conversion.js';
 
 export function getExerciseInstructions() {
   const instructions = selectElements('.exercise--instructions>*')

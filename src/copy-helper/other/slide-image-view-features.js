@@ -3,7 +3,7 @@ import {
   createButton,
   selectElements,
   selectSingleElement,
-} from '../util/dom.js';
+} from '../../util/dom.js';
 
 export function addSlideImageViewFeatures() {
   const imgs = selectElements(
