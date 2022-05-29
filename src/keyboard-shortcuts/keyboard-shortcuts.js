@@ -1,4 +1,6 @@
 import { getCodeSubExerciseLink } from '../util/shared.js';
+import { selectElements } from '../util/dom.js';
+import { copyToClipboard } from '../util/other.js';
 
 // Three types of shortcuts are supported:
 // 1. EditorTypingShortcut: Paste any given string to the clipboard
@@ -75,48 +77,23 @@ class KeyboardShortcut {
 }
 
 class EditorTypingShortcut extends KeyboardShortcut {
-  constructor(
-    assignedShortCutKbEvtInit,
-    outputStr,
-    shouldPreventDefault = false
-  ) {
+  constructor(assignedShortCutKbEvtInit, outputStr) {
     super({
       kbComboKbEvtInit: assignedShortCutKbEvtInit,
-      dispatchedKbEvtInit: {
-        // Shift + Insert -> should trigger editor paste! Before pasting, we copy to clipboard (at least that's the idea)
-        key: 'Insert',
-        code: 'Insert',
-        location: 0,
-        ctrlKey: false,
-        shiftKey: true,
-        altKey: false,
-        metaKey: false,
-        repeat: false,
-        isComposing: false,
-        charCode: 0,
-        keyCode: 45,
-        which: 45,
-        detail: 0,
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-      },
-      shouldPreventDefault,
     });
 
     this.outputStr = outputStr;
   }
 
   apply() {
-    const activeElement = document.activeElement;
-    activeElement.focus();
-    GM.setClipboard(this.outputStr);
-
-    // this dispatches Shift + Insert keydown event on activeElement
-    // if it is the editor, this.outputStr should be pasted -> currently doesn't work, though :/
-    // the isTrusted property of the manually created keyboard Event could be the issue
-    //  if the Monaco code editor checks for this prop, there's not much we can do I guess :/
-    activeElement.dispatchEvent(this.keyboardEvent);
+    const editorTextArea = selectElements(
+      '.inputarea.monaco-mouse-cursor-text'
+    )[0];
+    if (editorTextArea) {
+      copyToClipboard(this.outputStr);
+      editorTextArea.focus();
+      document.execCommand('paste');
+    }
   }
 }
 
