@@ -1,5 +1,5 @@
 import { getTextContents } from '../../../../../util/dom.js';
-import { showWarning } from '../../../index.js';
+import { showWarningSnackbar } from '../../../../../util/show-snackbar.js';
 import { removeCommentsFromCodeLines } from './util.js';
 
 export function getConsoleOutput(
@@ -100,7 +100,7 @@ function processEditorCode(coutObjs, editorCodeCompressed, filter = true) {
   }
 
   if (editorCodeCompressed && idxOfObjMarkingStartOfLastCodeOutput === -1) {
-    showWarning(
+    showWarningSnackbar(
       'The code you wrote was not found in the console output. Did you forget to run it?'
     );
   }

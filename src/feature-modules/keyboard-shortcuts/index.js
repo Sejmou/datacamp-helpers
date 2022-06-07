@@ -1,4 +1,4 @@
-import { getCodeSubExerciseLink } from '../../util/shared.js';
+import { getCodeSubExerciseLink } from '../../util/other.js';
 import { selectElements } from '../../util/dom.js';
 import { copyToClipboard } from '../../util/other.js';
 

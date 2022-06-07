@@ -1,4 +1,4 @@
-import { showInfo } from '../copy-helper/index.js';
+import { showInfoSnackbar } from '../../util/show-snackbar.js';
 import { addStyle, selectElements } from '../../util/dom.js';
 import { copyToClipboard } from '../../util/other.js';
 
@@ -48,10 +48,10 @@ const clickHandler = evt => {
   if (autoPaste) {
     selectElements('.inputarea.monaco-mouse-cursor-text')[0].focus();
     document.execCommand('paste');
-    showInfo('Code pasted and copied to clipboard!');
+    showInfoSnackbar('Code pasted and copied to clipboard!');
     evt.preventDefault();
   } else {
-    showInfo('Code copied to clipboard!');
+    showInfoSnackbar('Code copied to clipboard!');
   }
 };
 

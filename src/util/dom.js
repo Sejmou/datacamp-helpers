@@ -68,17 +68,12 @@ export function createSnackbar(
   return snackbar;
 }
 
-export function showSnackbar(id, text) {
-  const snackbar = document?.getElementById(id);
+export function showSnackbar(snackbar, text) {
   snackbar.remove();
   document.body.appendChild(snackbar);
 
-  if (snackbar) {
-    snackbar.innerText = text;
-    snackbar.classList.add('visible');
-  } else {
-    console.warn('Snackbar with ID', id, 'not found!');
-  }
+  snackbar.innerText = text;
+  snackbar.classList.add('visible');
 }
 
 // --- DOM ---- element selection

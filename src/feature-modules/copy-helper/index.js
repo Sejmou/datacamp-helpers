@@ -4,18 +4,14 @@ import { overviewCrawler } from './page-crawlers/course-overview.js';
 import { videoPageCrawler } from './page-crawlers/video-page.js';
 import { videoIframeCrawler } from './page-crawlers/video-iframe.js';
 import { exerciseCrawler } from './page-crawlers/code-exercise/index.js';
-import {
-  addStyle,
-  createButton,
-  createSnackbar,
-  showSnackbar,
-} from '../../util/dom.js';
+import { addStyle, createButton } from '../../util/dom.js';
 import { addSlideImageViewFeatures } from '../slide-image-viewer/index.js';
 import { copyToClipboard } from '../../util/other.js';
 import {
   enableCodeQuickCopy,
   disableCodeQuickCopy,
 } from '../code-quick-copy/index.js';
+import { showInfoSnackbar } from '../../util/show-snackbar.js';
 
 // config for all types of exercises
 const includeTaskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises
@@ -34,10 +30,6 @@ const codeExerciseConfig = {
   wideConsoleOutLinesStrategy: 'truncate', // specify how to deal with console output that is too wide; options: 'wrap', 'truncate', 'none'
   maxConsoleOutLineWidth: 90, // recommended: 90 -> should be exactly width of regular R Markdown code cells
 };
-
-// TODO: remove this global const if/when refactoring the codebase
-const infoSnackbarId = 'copy-helper-info-snackbar';
-const warningSnackbarId = 'copy-helper-warning-snackbar';
 
 export async function run() {
   console.log('run called');
@@ -75,17 +67,6 @@ export async function run() {
       clearInterval(detectionTimer); // after script was run on new page, remove exercise page change detection timer
     };
   }
-
-  const copyInfoSnackbar = createSnackbar(infoSnackbarId); // shows up when content is copied to clipboard
-  const warningSnackbar = createSnackbar(
-    warningSnackbarId,
-    {
-      top: '10%',
-      left: '50%',
-    },
-    'yellow',
-    5
-  );
 
   const btn = createCopyButton();
 
@@ -154,7 +135,7 @@ export async function run() {
     const pageCrawler = pageCrawlers.get(currentPage);
     const clipboardContent = await pageCrawler();
     copyToClipboard(clipboardContent);
-    showInfo('Copied R markdown to clipboard!');
+    showInfoSnackbar('Copied R markdown to clipboard!');
   };
   btn.addEventListener('click', copyFn);
 
@@ -176,8 +157,6 @@ export async function run() {
   );
 
   addToDocumentBody(btn);
-  addToDocumentBody(copyInfoSnackbar);
-  addToDocumentBody(warningSnackbar);
 }
 
 async function getCurrentPage() {
@@ -275,14 +254,6 @@ function createCopyButton() {
   `);
 
   return btn;
-}
-
-export function showInfo(msg) {
-  showSnackbar(infoSnackbarId, msg);
-}
-
-export function showWarning(msg) {
-  showSnackbar(warningSnackbarId, `Warning: ${msg}`);
 }
 
 function createConsoleOutputToggleCheckbox(checkboxId) {

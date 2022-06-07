@@ -1,4 +1,3 @@
-import { showWarning } from '../../../index.js';
 import {
   selectSingleElement,
   selectElements,
@@ -6,6 +5,7 @@ import {
   isAboveOrOverlapping,
 } from '../../../../../util/dom.js';
 import { removeCommentsFromCodeLines } from './util.js';
+import { showWarningSnackbar } from '../../../../../util/show-snackbar.js';
 
 export async function getExerciseCodeMarkdown(
   addEvalFalseToCodeBlock,
@@ -56,7 +56,7 @@ function getCodeMarkdownFromLines(
         addEvalFalse
       );
     default:
-      showWarning(
+      showWarningSnackbar(
         `Illegal value '${commentHandlingStrategy}' for comment handling strategy, defaulting to 'drop'`
       );
       return getEditorCodeBlock(
@@ -151,7 +151,7 @@ async function getEditorCodeLines() {
   // As code lines are removed from the editor DOM content once it is scrolled down, the first few lines might be missing
   // could not figure out how to scroll up in editor (only scrolling down works lol), so best I can do is show a warning
   if (!(lineNumbers[0] <= 1)) {
-    showWarning(
+    showWarningSnackbar(
       `Editor not scrolled to top, code before line ${lineNumbers[0]} will not be copied`
     );
   }
