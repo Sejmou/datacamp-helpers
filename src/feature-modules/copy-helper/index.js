@@ -10,12 +10,12 @@ import {
   createSnackbar,
   showSnackbar,
 } from '../../util/dom.js';
-import { addSlideImageViewFeatures } from '../slide-image-viewer/slide-image-viewer.js';
+import { addSlideImageViewFeatures } from '../slide-image-viewer/index.js';
 import { copyToClipboard } from '../../util/other.js';
 import {
   enableCodeQuickCopy,
   disableCodeQuickCopy,
-} from '../code-quick-copy/code-quick-copy.js';
+} from '../code-quick-copy/index.js';
 
 // config for all types of exercises
 const includeTaskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises

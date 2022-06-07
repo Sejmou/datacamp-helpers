@@ -1,13 +1,15 @@
+async function importFeatureModule(name) {
+  const src = chrome.runtime.getURL(`src/feature-modules/${name}/index.js`);
+  const module = await import(src);
+  return module;
+}
+
 (async () => {
-  const copyHelperSrc = chrome.extension.getURL(
-    'src/feature-modules/copy-helper/copy-helper.js'
-  );
-  const copyHelperModule = await import(copyHelperSrc);
+  const copyHelperModule = await importFeatureModule('copy-helper');
   copyHelperModule.run();
 
-  const keyboardShortcutSrc = chrome.extension.getURL(
-    'src/feature-modules/keyboard-shortcuts/keyboard-shortcuts.js'
+  const keyboardShortcutModule = await importFeatureModule(
+    'keyboard-shortcuts'
   );
-  const keyboardShortcutModule = await import(keyboardShortcutSrc);
   keyboardShortcutModule.addKeyboardShortcuts();
 })();

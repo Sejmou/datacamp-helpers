@@ -1,5 +1,5 @@
 import { getTextContents } from '../../../../../util/dom.js';
-import { showWarning } from '../../../copy-helper.js';
+import { showWarning } from '../../../index.js';
 import { removeCommentsFromCodeLines } from './util.js';
 
 export function getConsoleOutput(

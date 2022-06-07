@@ -1,4 +1,4 @@
-import { showWarning } from '../../../copy-helper.js';
+import { showWarning } from '../../../index.js';
 import {
   selectSingleElement,
   selectElements,
