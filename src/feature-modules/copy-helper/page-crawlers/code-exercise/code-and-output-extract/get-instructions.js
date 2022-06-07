@@ -1,9 +1,9 @@
-import { selectElements } from '../../../../util/dom.js';
+import { selectElements } from '../../../../../util/dom.js';
 import {
   HTMLElementToMarkdown,
   HTMLListToMarkdown,
-} from '../../../../util/markdown-conversion.js';
-import { getCodeSubExerciseLink } from '../../../../util/shared.js';
+} from '../../../../../util/markdown-conversion.js';
+import { getCodeSubExerciseLink } from '../../../../../util/shared.js';
 
 export function getExerciseInstructions() {
   const instructions = selectElements('.exercise--instructions>*')

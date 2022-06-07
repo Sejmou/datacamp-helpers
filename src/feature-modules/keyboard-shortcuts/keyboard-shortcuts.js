@@ -1,6 +1,6 @@
-import { getCodeSubExerciseLink } from '../util/shared.js';
-import { selectElements } from '../util/dom.js';
-import { copyToClipboard } from '../util/other.js';
+import { getCodeSubExerciseLink } from '../../util/shared.js';
+import { selectElements } from '../../util/dom.js';
+import { copyToClipboard } from '../../util/other.js';
 
 // Three types of shortcuts are supported:
 // 1. EditorTypingShortcut: Paste any given string to the clipboard

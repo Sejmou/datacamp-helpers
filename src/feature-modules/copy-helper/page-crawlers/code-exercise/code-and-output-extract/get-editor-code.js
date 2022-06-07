@@ -4,7 +4,7 @@ import {
   selectElements,
   compareElementYPos,
   isAboveOrOverlapping,
-} from '../../../../util/dom.js';
+} from '../../../../../util/dom.js';
 import { removeCommentsFromCodeLines } from './util.js';
 
 export async function getExerciseCodeMarkdown(

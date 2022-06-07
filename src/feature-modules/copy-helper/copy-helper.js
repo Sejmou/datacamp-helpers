@@ -9,13 +9,13 @@ import {
   createButton,
   createSnackbar,
   showSnackbar,
-} from '../util/dom.js';
-import { addSlideImageViewFeatures } from './other/slide-image-view-features.js';
-import { copyToClipboard } from '../util/other.js';
+} from '../../util/dom.js';
+import { addSlideImageViewFeatures } from '../slide-image-viewer/slide-image-viewer.js';
+import { copyToClipboard } from '../../util/other.js';
 import {
-  disableCodeQuickCopy,
   enableCodeQuickCopy,
-} from './other/code-quick-copy.js';
+  disableCodeQuickCopy,
+} from '../code-quick-copy/code-quick-copy.js';
 
 // config for all types of exercises
 const includeTaskAndSolutionHeadings = true; // whether fitting subheadings for differentiating between task and task solution should be added automatically when copying exercises

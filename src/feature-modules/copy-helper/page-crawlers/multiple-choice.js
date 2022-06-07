@@ -1,5 +1,5 @@
-import { HTMLElementToMarkdown } from '../../util/markdown-conversion.js';
-import { selectElements } from '../../util/dom.js';
+import { HTMLElementToMarkdown } from '../../../util/markdown-conversion.js';
+import { selectElements } from '../../../util/dom.js';
 
 export function multipleChoiceExerciseCrawler(
   submitAnswerOnCopy,

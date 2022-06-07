@@ -1,4 +1,4 @@
-import { showInfo } from '../copy-helper.js';
+import { showInfo } from '../copy-helper/copy-helper.js';
 import { addStyle, selectElements } from '../../util/dom.js';
 import { copyToClipboard } from '../../util/other.js';
 

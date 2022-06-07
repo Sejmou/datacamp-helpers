@@ -1,4 +1,4 @@
-import { getTextContent, selectElements } from '../../util/dom.js';
+import { getTextContent, selectElements } from '../../../util/dom.js';
 
 export function videoPageCrawler() {
   const title = getTextContent('.exercise-area h1');
