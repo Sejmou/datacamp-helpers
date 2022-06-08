@@ -64,7 +64,17 @@ One can use the following shortcuts in the code editor (which are probably known
 
 ![Editor shortcut demo](demo-gifs/editor-shortcuts.gif)
 
-#### Custom shortcuts
+#### Fixes for existing shortcuts
+
+This extension fixes many of DataCamp's built-in shortcuts. They don't work well out of the box as they clash with default browser key combinations and apparently this was not handled appropriately by the devs of the DataCamp web app.
+
+Navigate through exercises with <kbd>Ctrl</kbd> + <kbd>J</kbd> and <kbd>Ctrl</kbd> + <kbd>K</kbd>:
+
+![Exercise navigation](demo-gifs/exercise-nav.gif)
+
+The experience with video pages is improved as well (<kbd>Ctrl</kbd> + <kbd>J</kbd>, <kbd>Ctrl</kbd> + <kbd>K</kbd>, and <kbd>Ctrl</kbd> + <kbd>O</kbd> also work while the video is focused).
+
+#### Additional shortcuts
 
 Focus into videos on the video page by pressing <kbd>F</kbd>, leave focus with <kbd>ESC</kbd>.
 
@@ -77,16 +87,6 @@ Use <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>J</kbd> and <kbd>Ctrl</kbd> + <kbd
 Toggle the course overview modal (open with <kbd>Ctrl</kbd> + <kbd>O</kbd>, close by hitting <kbd>ESC</kbd>):
 
 ![Modal demo](demo-gifs/modal.gif)
-
-#### Fixes for existing shortcuts
-
-Furthermore, this extension fixes many of DataCamp's built-in shortcuts. They don't work well out of the box as they clash with default browser key combinations and apparently this was not handled appropriately by the devs of the DataCamp web app.
-
-Navigate through exercises with <kbd>Ctrl</kbd> + <kbd>J</kbd> and <kbd>Ctrl</kbd> + <kbd>K</kbd>:
-
-![Exercise navigation](demo-gifs/exercise-nav.gif)
-
-The experience with video pages is improved as well (<kbd>Ctrl</kbd> + <kbd>J</kbd>, <kbd>Ctrl</kbd> + <kbd>K</kbd>, and <kbd>Ctrl</kbd> + <kbd>O</kbd> also work while the video is focused).
 
 ### Slide image viewer
 
