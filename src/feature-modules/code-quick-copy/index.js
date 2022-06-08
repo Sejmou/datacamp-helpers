@@ -84,6 +84,7 @@ const bodyObs = new MutationObserver(checkForSidebarChange);
 const sidebarObs = new MutationObserver(checkForAddedCode);
 
 export function enableCodeQuickCopy() {
+  console.log('code quick copy enabled');
   enabled = true;
   addCopyFunctionality(trackedCodeElements);
   bodyObs.observe(document.body, { childList: true, subtree: true });

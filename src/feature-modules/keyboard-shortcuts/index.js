@@ -258,7 +258,7 @@ function createShortcuts() {
           // leave any element that is currently focussed (probably code editor if in main window or video player if in video-iframe)
           document.activeElement.blur();
 
-          if (getCurrentPage() === 'video-iframe') {
+          if (getCurrentPageSync() === 'video-iframe') {
             chrome.runtime.sendMessage(
               notificationIds.escKeyPressFromVideoIframe
             );
@@ -286,7 +286,7 @@ function createShortcuts() {
         composed: true,
       },
       keyboardEvent => {
-        const currentPage = getCurrentPage();
+        const currentPage = getCurrentPageSync();
         if (currentPage === 'video-page') {
           const videoIframeWindow = document.querySelector(
             'iframe[title*="video"]'
@@ -303,7 +303,7 @@ function createShortcuts() {
         altKey: true,
       },
       keyboardEvent => {
-        if (getCurrentPage() === 'other') {
+        if (getCurrentPageSync() === 'other') {
           // try to focus into the code editor (if it exists)
           const editorTextArea = document?.querySelector(
             'textarea.inputarea.monaco-mouse-cursor-text'
@@ -355,8 +355,9 @@ const notificationIds = {
 };
 
 export function addKeyboardShortcuts() {
+  console.log('adding keyboard shortcuts');
   const shortcuts = createShortcuts();
-  const currentPage = getCurrentPage();
+  const currentPage = getCurrentPageSync();
 
   if (currentPage === 'video-iframe') {
     const videoPlayer = document.activeElement;
@@ -390,7 +391,8 @@ export function addKeyboardShortcuts() {
   );
 }
 
-function getCurrentPage() {
+// contrary to getCurrentPage() from util/other.js, this function does not wait for certain DOM elements to appear
+function getCurrentPageSync() {
   if (document.querySelector('.slides')) {
     return 'video-iframe'; // inside video iframe
   } else if (

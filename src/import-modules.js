@@ -12,4 +12,17 @@ async function importFeatureModule(name) {
     'keyboard-shortcuts'
   );
   keyboardShortcutModule.addKeyboardShortcuts();
+
+  const otherUtilsModule = await import('./util/other.js');
+  const currentPage = await otherUtilsModule.getCurrentPage();
+
+  if (currentPage === 'video-iframe') {
+    const slideImageViewerModule = await importFeatureModule(
+      'slide-image-viewer'
+    );
+    slideImageViewerModule.addSlideImageViewFeatures();
+  } else {
+    const codeQuickCopyModule = await importFeatureModule('code-quick-copy');
+    codeQuickCopyModule.enableCodeQuickCopy();
+  }
 })();

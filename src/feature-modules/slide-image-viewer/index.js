@@ -6,6 +6,7 @@ import {
 } from '../../util/dom.js';
 
 export function addSlideImageViewFeatures() {
+  console.log('adding slide image viewer');
   const imgs = selectElements(
     '.slide-content img:not([class]), .slide-content img[class=""]'
   ).map(img => img.cloneNode(true));
