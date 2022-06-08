@@ -94,7 +94,7 @@ function stringArrToMarkdownTableRow(strArr) {
   return '| ' + strArr.join(' | ') + ' |';
 }
 
-function twoDArrayFromColArrays(...colArrays) {
+function twoDArrayFromColArrays(colArrays) {
   let arrMaxLength = 0;
   colArrays.forEach(arr => {
     if (arr.length > arrMaxLength) {
@@ -104,9 +104,9 @@ function twoDArrayFromColArrays(...colArrays) {
 
   const output = new Array(arrMaxLength);
 
-  for (let i = 0; i < arrMaxLength; i++) {
-    const row = colArrays.map(arr => arr[i]).flat();
-    output[i] = row;
+  for (let row = 0; row < arrMaxLength; row++) {
+    const rowValues = colArrays.map(arr => arr[row] || '     ').flat();
+    output[row] = rowValues;
   }
 
   return output;
