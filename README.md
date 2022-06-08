@@ -96,6 +96,18 @@ Skip through the images of every video exercise to inspect them in more detail.
 
 You may also save them to your PC by right-clicking them and choosing `Save image as...`.
 
+## Installation
+
+As this Chrome Extension has not been published in the Chrome Store, you need to clone its repo (or download the code) and install it in developer mode.
+
+Instructions:
+
+1. Get the code (by cloning this repo or downloading and unzipping)
+2. Go to `chrome://extensions`
+3. Make sure Developer mode is on (switch in the upper-right corner)
+4. Click on `Load unpacked`
+5. Choose folder containing code
+
 ## WHY?
 
 I created this extension solely for the purpose of reducing time spent with dumb copy-pasting in a course of the Data Science Master's degree at TU Wien. There, we had an extremely lazy lecturer who basically just gave us a list of DataCamp courses that we should take. For each of those courses, we were tasked with creating a R Markdown file, were we essentially just had to copy all the stuff we did and explain what the code does. (btw, I'm aware that implementing this solution was probably 10x as much work as doing the stupid manual copy-pasting work, but at least I had fun haha)
