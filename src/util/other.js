@@ -1,3 +1,5 @@
+import { selectElements } from './dom.js';
+
 // apparently only working solution to copy to clipboard from Chrome Extension: https://stackoverflow.com/a/22702538 https://stackoverflow.com/a/60349158
 export function copyToClipboard(text) {
   const ta = document.createElement('textarea');
