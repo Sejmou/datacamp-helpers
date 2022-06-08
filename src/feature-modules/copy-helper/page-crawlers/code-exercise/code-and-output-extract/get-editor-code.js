@@ -284,80 +284,63 @@ async function submitAnswer() {
 }
 
 async function answerSubmitted() {
-  const consoleWrapper = document.querySelector('.console--wrapper');
-  const submitAnswerButton = document.querySelector(
-    '[data-cy="submit-button"]'
-  );
+  return new Promise(resolve => {
+    // multiple ways of "completion" of the submission are possible -> use multiple observers
+    const observers = [];
+    const resolveAndDisconnect = () => {
+      observers.forEach(obs => obs.disconnect());
+      resolve();
+    };
 
-  if (consoleWrapper) {
-    return new Promise(resolve => {
-      const submitButtonObs = new MutationObserver((recs, obs) => {
-        // submit button is disabled once answer is submitted (but not immediately after submitting)
+    // if the current exercise is an exercise without subexercises (or the last subexercise), we simply need to wait for the "continue" button to appear on the site
+    const completedObs = new MutationObserver(() => {
+      if (document.querySelector('.dc-completed')) {
+        console.log('resolved in completed observer!');
+        resolveAndDisconnect();
+      }
+    });
+    observers.push(completedObs);
+    completedObs.observe(document.body, { subtree: true, childList: true });
 
-        // if the current exercise is an exercise without subexercises (or the last subexercise), we need to wait for the "continue" button to appear on the site
-        const completedObs = new MutationObserver((_, completedObs) => {
-          if (document.querySelector('.dc-completed')) {
-            completedObs.disconnect();
-            obs.disconnect();
-            resolve();
-          }
-        });
-        completedObs.observe(document.body, { subtree: true, childList: true });
+    // in other cases, we need to detect the success of the submission in a different way
+    // submit button is disabled once answer is submitted (but not immediately after submitting lol)
+    const submitAnswerButton = document.querySelector(
+      '[data-cy="submit-button"]'
+    );
+    let submitButtonWasDisabled = submitAnswerButton.disabled;
 
-        // otherwise, (if the submitted exercise is a subexercise, but not the last one), we need to wait for the button to become available again
-        // only then the current exercise is submitted completely and the relevant output is in the console
-        const isEnabled = !submitAnswerButton.disabled;
+    const submitButtonObs = new MutationObserver((_, obs) => {
+      // we need to wait for the button to become enabled again
+      const isReenabled =
+        !submitAnswerButton.disabled && submitButtonWasDisabled;
+      submitButtonWasDisabled = submitAnswerButton.disabled;
 
-        if (isEnabled) {
-          obs.disconnect();
+      if (isReenabled) {
+        // the button observer is not needed anymore
+        obs.disconnect();
 
-          const editorWrapper = selectSingleElement('[id*=editorTab]');
-
-          // editor code for next exercise is not available immediately, it is added later
-          // we need to wait for all code lines to appear
-          // line numbers appear first, lines (.view-line containers) appear later, one-by-one
-          let totalLineCount = Number.MAX_VALUE;
-          let addedLinesCount = 0;
-          const editorWrapperObs = new MutationObserver((recs, obs) => {
-            if (addedLinesCount == totalLineCount) {
-              obs.disconnect();
-              resolve();
-              return;
-            }
-            recs.forEach(rec => {
-              if (rec.addedNodes?.length > 0) {
-                const lineNumbersAdded =
-                  rec.addedNodes[0].textContent.trim() === '1';
-                if (lineNumbersAdded) {
-                  totalLineCount = rec.addedNodes.length;
-                }
-                rec.addedNodes.forEach(el => {
-                  // "fun fact": checking with className.includes() fails for SVG elements, so we instead use classList.contains()
-                  // reason: SVG elements have className property too, but it is defined differently: https://stackoverflow.com/a/37949156/13727176
-                  if (el.classList.contains('view-line')) {
-                    addedLinesCount++;
-                    if (addedLinesCount === totalLineCount) {
-                      // for some reason, this line seems to never be reached in practice!?
-                      obs.disconnect();
-                      resolve();
-                      return;
-                    }
-                  }
-                });
+        const editorWrapper = selectSingleElement('[id*=editorTab]');
+        const editorWrapperObs = new MutationObserver(recs => {
+          recs.forEach(rec => {
+            rec.removedNodes.forEach(el => {
+              if (el.textContent.includes('Spinner')) {
+                resolveAndDisconnect();
               }
             });
           });
+        });
+        observers.push(editorWrapperObs);
 
-          editorWrapperObs.observe(editorWrapper, {
-            childList: true,
-            subtree: true,
-          });
-        }
-      });
-      submitButtonObs.observe(submitAnswerButton, {
-        attributes: true,
-        attributeFilter: ['disabled'],
-      });
+        editorWrapperObs.observe(editorWrapper, {
+          childList: true,
+          subtree: true,
+        });
+      }
     });
-  }
+
+    submitButtonObs.observe(submitAnswerButton, {
+      attributes: true,
+      attributeFilter: ['disabled'],
+    });
+  });
 }

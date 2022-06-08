@@ -4,7 +4,7 @@ This is a Chrome Extension adding features that make the user experience on Data
 
 ## Features
 
-### Copy content of various sub-sites of DataCamp courses to clipboard (in R Studio markdown)
+### Copy course content to clipboard (as R Studio markdown)
 
 A `copy to clipboard` button is added to the currently visited subsite of any DataCamp course. It allows you to get the relevant content of the page, formatted as markdown that you may copy into R Studio directly. This can be useful for creating documents summarizing what you have learnt. Several sub-sites are supported. Lists, code blocks, inline code, or even LaTeX are pre-formatted accordingly as well.
 
