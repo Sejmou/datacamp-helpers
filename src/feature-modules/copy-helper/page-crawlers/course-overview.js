@@ -12,10 +12,8 @@ export function overviewCrawler() {
   chapters = chapters.join('\n\n\n\n\n\n');
 
   return `---
-title: 'Data Acquisition and Survey Methods (2022S) Exercise X: ${getTextContent(
-    '.header-hero__title'
-  )}'
-author: "Samo Kolter (1181909)"
+title: 'DataCamp: ${getTextContent('.header-hero__title')}'
+author: "Your Name"
 date: "\`r Sys.setlocale('LC_TIME', 'en_GB.UTF-8'); format(Sys.time(), '%d %B, %Y')\`"
 output: 
   pdf_document:
