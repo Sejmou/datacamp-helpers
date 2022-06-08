@@ -11,6 +11,15 @@ export function copyToClipboard(text) {
   ta.remove();
 }
 
+export function dispatchKeyboardEvent(kbEvtInit) {
+  const keyboardEvent = new KeyboardEvent('keydown', kbEvtInit);
+
+  const activeElement = document.activeElement;
+  document.body.focus();
+  document.body.dispatchEvent(keyboardEvent);
+  activeElement.focus();
+}
+
 export async function getCurrentPage() {
   // Here, we figure out what page (or iframe) the script is running on - this was not so trivial as expected lol
   // The DataCamp course content is loaded inside iframes on the course overview page, essentially creating isolated DOMs

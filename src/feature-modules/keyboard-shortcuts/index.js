@@ -1,4 +1,7 @@
-import { getCodeSubExerciseLink } from '../../util/other.js';
+import {
+  dispatchKeyboardEvent,
+  getCodeSubExerciseLink,
+} from '../../util/other.js';
 import { selectElements } from '../../util/dom.js';
 import { copyToClipboard } from '../../util/other.js';
 
@@ -110,6 +113,31 @@ class ShortcutWorkaround extends KeyboardShortcut {
       dispatchedKbEvtInit: kbEvtInit,
       shouldPreventDefault,
     });
+
+    if (getCurrentPageSync() === 'video-iframe') {
+      // if a DataCamp shortcut is pressed from the video iframe, we still want to make sure the shortcut works as usual
+      // for this we have to recreate the keyboard event on the main page
+      // for this purpose we send the KeyboardEventInit associated with this event to the instance of this script running on the main page
+      // catching and sending the original KeyboardEvent directly unfortunately does not work
+      document.addEventListener(
+        'keydown',
+        keyboardEvent => {
+          if (
+            keyboardEvent.isTrusted &&
+            this.keyCombination?.matches(keyboardEvent)
+          ) {
+            if (this.shouldPreventDefault) keyboardEvent.preventDefault();
+            chrome.runtime.sendMessage({
+              type: messageTypes.dataCampShortcutPressVideoIframe,
+              data: kbEvtInit,
+            });
+          }
+        },
+        {
+          capture: true,
+        }
+      );
+    }
   }
 
   apply(keyboardEvent) {
@@ -258,10 +286,10 @@ function createShortcuts() {
           // leave any element that is currently focussed (probably code editor if in main window or video player if in video-iframe)
           document.activeElement.blur();
 
-          if (getCurrentPageSync() === 'video-iframe') {
-            chrome.runtime.sendMessage(
-              notificationIds.escKeyPressFromVideoIframe
-            );
+          const currentPage = getCurrentPageSync();
+
+          if (currentPage === 'video-iframe') {
+            chrome.runtime.sendMessage({ type: messageTypes.leaveVideoIframe });
           }
         }
       }
@@ -285,7 +313,7 @@ function createShortcuts() {
         cancelable: true,
         composed: true,
       },
-      keyboardEvent => {
+      () => {
         const currentPage = getCurrentPageSync();
         if (currentPage === 'video-page') {
           const videoIframeWindow = document.querySelector(
@@ -293,7 +321,7 @@ function createShortcuts() {
           )?.contentWindow; // contentWindow of iframe video is running in
           videoIframeWindow?.focus();
           // notify script instance running in iframe that it should focus the video player
-          chrome.runtime.sendMessage(notificationIds.fKeyPressFromVideoPage);
+          chrome.runtime.sendMessage({ type: messageTypes.focusVideoIframe });
         }
       }
     ),
@@ -349,9 +377,10 @@ function createShortcuts() {
   ]);
 }
 
-const notificationIds = {
-  fKeyPressFromVideoPage: 'f-key-video-page',
-  escKeyPressFromVideoIframe: 'esc-key-video-iframe',
+const messageTypes = {
+  focusVideoIframe: 'focus-video-iframe',
+  leaveVideoIframe: 'leave-video-iframe',
+  dataCampShortcutPressVideoIframe: 'dc-shortcut-video-iframe',
 };
 
 export function addKeyboardShortcuts() {
@@ -362,16 +391,23 @@ export function addKeyboardShortcuts() {
   if (currentPage === 'video-iframe') {
     const videoPlayer = document.activeElement;
     chrome.runtime.onMessage.addListener(message => {
-      if (message === notificationIds.fKeyPressFromVideoPage) {
+      if (message.type === messageTypes.focusVideoIframe) {
         videoPlayer.focus();
       }
     });
   } else {
+    // script running on main page (not inside video iframe)
     chrome.runtime.onMessage.addListener(message => {
-      if (message === notificationIds.escKeyPressFromVideoIframe) {
+      if (message.type === messageTypes.leaveVideoIframe) {
         // remove focus for video in iframe -> focus is back in main document
         // regular DataCamp keyboard shortcuts work again
         document.activeElement.blur();
+      } else if (
+        message.type === messageTypes.dataCampShortcutPressVideoIframe
+      ) {
+        // some DataCamp shortcut was hit from the video iframe -> "retrigger" it on the main page!
+        const kbEvtInit = message.data;
+        dispatchKeyboardEvent(kbEvtInit);
       }
     });
   }
@@ -393,6 +429,8 @@ export function addKeyboardShortcuts() {
 
 // contrary to getCurrentPage() from util/other.js, this function does not wait for certain DOM elements to appear
 function getCurrentPageSync() {
+  console.log('getting current page');
+  console.log(document.activeElement);
   if (document.querySelector('.slides')) {
     return 'video-iframe'; // inside video iframe
   } else if (

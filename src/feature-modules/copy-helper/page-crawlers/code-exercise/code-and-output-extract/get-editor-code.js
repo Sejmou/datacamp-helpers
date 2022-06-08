@@ -6,6 +6,7 @@ import {
 } from '../../../../../util/dom.js';
 import { removeCommentsFromCodeLines } from './util.js';
 import { showWarningSnackbar } from '../../../../../util/show-snackbar.js';
+import { dispatchKeyboardEvent } from '../../../../../util/other.js';
 
 export async function getExerciseCodeMarkdown(
   addEvalFalseToCodeBlock,
@@ -280,15 +281,6 @@ async function submitAnswer() {
   console.log('submitting answer');
   await answerSubmitted();
   console.log('answer submitted');
-}
-
-function dispatchKeyboardEvent(kbEvtInit) {
-  const keyboardEvent = new KeyboardEvent('keydown', kbEvtInit);
-
-  const activeElement = document.activeElement;
-  document.body.focus();
-  document.body.dispatchEvent(keyboardEvent);
-  activeElement.focus();
 }
 
 async function answerSubmitted() {
