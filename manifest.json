@@ -52,6 +52,7 @@
     "src/feature-modules/copy-helper/page-crawlers/video-page.js",
     "src/feature-modules/keyboard-shortcuts/index.js",
     "src/feature-modules/slide-image-viewer/index.js",
+    "src/feature-modules/video-slide-navigation/index.js",
     "src/import-modules.js",
     "src/util/dom.js",
     "src/util/markdown-conversion.js",

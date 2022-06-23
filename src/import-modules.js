@@ -11,7 +11,7 @@ async function importFeatureModule(name) {
   const keyboardShortcutModule = await importFeatureModule(
     'keyboard-shortcuts'
   );
-  keyboardShortcutModule.addKeyboardShortcuts();
+  keyboardShortcutModule.enable();
 
   const otherUtilsModule = await import('./util/other.js');
   const currentPage = await otherUtilsModule.getCurrentPage();
@@ -21,6 +21,11 @@ async function importFeatureModule(name) {
       'slide-image-viewer'
     );
     slideImageViewerModule.addSlideImageViewFeatures();
+
+    const videoSlideNavigationModule = await importFeatureModule(
+      'video-slide-navigation'
+    );
+    videoSlideNavigationModule.enable();
   } else {
     const codeQuickCopyModule = await importFeatureModule('code-quick-copy');
     codeQuickCopyModule.enableCodeQuickCopy();

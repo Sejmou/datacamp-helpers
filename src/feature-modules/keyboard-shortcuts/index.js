@@ -161,7 +161,7 @@ class ShortcutWorkaround extends KeyboardShortcut {
 }
 
 // allows running an arbitrary function by pressing a shortcut
-class FunctionShortcut extends KeyboardShortcut {
+export class FunctionShortcut extends KeyboardShortcut {
   constructor(kbEvtInit, fn, shouldPreventDefault = false) {
     super({ kbComboKbEvtInit: kbEvtInit, shouldPreventDefault });
     this.fn = fn;
@@ -181,10 +181,9 @@ class KeyboardShortcuts {
   }
 
   // applies a shortcut if it matches
-  // TODO: think about whether multiple shortcut bindings for same keyboard combination should be allowed
-  // If yes, current solution wouldn't work
+  // TODO: multiple shortcuts may listen to same keyboardEvent - think about issuing warning or something similar
   applyMatching(keyboardEvent) {
-    return this.shortcuts.find(s => s.handle(keyboardEvent));
+    return this.shortcuts.forEach(s => s.handle(keyboardEvent));
   }
 
   // TODO: add logic for checking if keybinding for KeyCombination of shortcut already exists
@@ -383,9 +382,10 @@ const messageTypes = {
   dataCampShortcutPressVideoIframe: 'dc-shortcut-video-iframe',
 };
 
-export function addKeyboardShortcuts() {
-  console.log('adding keyboard shortcuts');
-  const shortcuts = createShortcuts();
+const shortcuts = createShortcuts();
+
+export function enable() {
+  console.log('enabling keyboard shortcuts');
   const currentPage = getCurrentPageSync();
 
   if (currentPage === 'video-iframe') {
@@ -427,10 +427,12 @@ export function addKeyboardShortcuts() {
   );
 }
 
+export function addShortcut(shortcut) {
+  shortcuts.add(shortcut);
+}
+
 // contrary to getCurrentPage() from util/other.js, this function does not wait for certain DOM elements to appear
 function getCurrentPageSync() {
-  console.log('getting current page');
-  console.log(document.activeElement);
   if (document.querySelector('.slides')) {
     return 'video-iframe'; // inside video iframe
   } else if (
