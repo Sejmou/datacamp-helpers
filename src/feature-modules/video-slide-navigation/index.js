@@ -1,106 +1,103 @@
 import { selectElements, selectSingleElement } from '../../util/dom.js';
 import { addShortcut, FunctionShortcut } from '../keyboard-shortcuts/index.js';
 
-class VideoSeeker {
+class SlideFinder {
+  #video;
+  #seeking;
+  #seekStepSize = 0.5;
+
   constructor(video) {
-    this.video = video;
-    this._seekingForward = false;
-    this._seekingBackward = false;
+    this.#video = video;
+    this.#seeking = false;
   }
 
-  async seekForward() {
-    this._seekingForward = true;
-    this.video.pause();
-    while (this._seekingForward) {
-      await seekVideo(this.video, 0.5);
+  async findNextSlide() {
+    if (this.#seeking) {
+      console.warn('already seeking, this call will be ignored');
+      return;
+    }
+
+    let currentSlideState = await getSlideState();
+
+    const currentSlideFullyLoaded =
+      currentSlideState.currFragIdx === currentSlideState.fragCount - 1;
+
+    if (currentSlideFullyLoaded) {
+      const atLastSlide =
+        currentSlideState.currSlideIdx === currentSlideState.slideCount - 1;
+
+      if (atLastSlide) {
+        //cannot go forward any further!
+        return;
+      }
+
+      // we need to wait until the next slide is reached in the video
+      let slideChanged = false;
+
+      while (!slideChanged) {
+        const newSlideState = await this.seekAndGetSlideState(
+          this.#seekStepSize
+        );
+        slideChanged =
+          newSlideState.currSlideIdx != currentSlideState.currSlideIdx;
+        currentSlideState = newSlideState;
+      }
+    }
+
+    let lastFragmentReached =
+      currentSlideState.currFragIdx === currentSlideState.fragCount - 1;
+
+    while (!lastFragmentReached) {
+      const newSlideState = await this.seekAndGetSlideState(this.#seekStepSize);
+      lastFragmentReached =
+        currentSlideState.currFragIdx === currentSlideState.fragCount - 1;
+      currentSlideState = newSlideState;
     }
   }
 
-  async seekBackward() {
-    this._seekingBackward = true;
-    this.video.pause();
-    while (this._seekingBackward) {
-      await seekVideo(this.video, -0.5);
+  async seekAndGetSlideState(seekTimestep) {
+    this.#video.pause();
+    await seekVideo(this.#video, seekTimestep);
+    return getSlideState();
+  }
+
+  async findPreviousSlide() {
+    if (this.#seeking) {
+      console.warn('already seeking, this call will be ignored');
+      return;
     }
-  }
 
-  stopSeeking() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
+    let currentSlideState = await getSlideState();
+
+    let atFirstSlide = currentSlideState.currSlideIdx === 0;
+    if (atFirstSlide) {
+      // cannot go back any further!
+      return;
     }
-    this._seekingForward = false;
-    this._seekingBackward = false;
-  }
 
-  get seekingForward() {
-    return this._seekingForward;
-  }
+    // we need to wait until the previous slide is reached in the video
+    let slideChanged = false;
 
-  get seekingBackward() {
-    return this._seekingBackward;
+    while (!slideChanged) {
+      const newSlideState = await this.seekAndGetSlideState(
+        -this.#seekStepSize
+      );
+      slideChanged =
+        newSlideState.currSlideIdx != currentSlideState.currSlideIdx;
+      currentSlideState = newSlideState;
+    }
   }
 }
 
 export function enable() {
-  console.log('slide navigation enabled (atm, this has no special effect)');
-
-  const videoSeeker = new VideoSeeker(selectSingleElement('video'));
-
-  const slideState = new Proxy(
-    {
-      currSlideIdx: -1,
-      slideCount: -1,
-      currFragIdx: -1,
-      fragCount: -1,
-    },
-    {
-      slideChanged: false,
-      set: function (target, key, value) {
-        if (key === 'currSlideIdx' && value !== target.currSlideIdx) {
-          this.slideChanged = true;
-        }
-        target[key] = value;
-
-        const allFragmentsVisible = target.currFragIdx === target.fragCount - 1;
-        if (allFragmentsVisible) console.log('all fragments visible!');
-
-        if (
-          (videoSeeker.seekingForward &&
-            (target.currSlideIdx === target.slideCount - 1 ||
-              (this.slideChanged && allFragmentsVisible))) ||
-          (videoSeeker.seekingBackward &&
-            (target.currSlideIdx === 0 ||
-              (this.slideChanged && allFragmentsVisible)))
-        ) {
-          console.log('Stop seeking!');
-          console.log(slideState);
-          videoSeeker.stopSeeking();
-          this.slideChanged = false;
-        }
-
-        console.log('state updated!', target);
-
-        return true;
-      },
-    }
+  console.log(
+    'slide navigation enabled (use Ctrl + Shift + J to jump to next slide or Ctrl + Shift + K to jump to previous one)'
   );
 
-  const updateSlideState = () => {
-    const { currSlideIdx, currFragIdx, fragCount, slideCount } =
-      getSlideState();
+  const slideFinder = new SlideFinder(selectSingleElement('video'));
 
-    slideState.currSlideIdx = currSlideIdx;
-    slideState.currFragIdx = currFragIdx;
-    slideState.fragCount = fragCount;
-    slideState.slideCount = slideCount;
-  };
-
-  const slideContainer = selectSingleElement('.slides');
-  const slideObs = new MutationObserver(updateSlideState);
-  Array.from(slideContainer.children).forEach(slide =>
-    slideObs.observe(slide, { attributes: true })
-  );
-
+  // TODO: fix issue with keyboard mapping conflict (K is also used as hotkey for play/pause of video)
+  // if last video slide is reached, play/pause of video is still triggered when actually pressing ctrl + shift + k
   addShortcut(
     new FunctionShortcut(
       {
@@ -108,7 +105,7 @@ export function enable() {
         ctrlKey: true,
         shiftKey: true,
       },
-      () => videoSeeker.seekForward(),
+      () => slideFinder.findNextSlide(),
       true
     )
   );
@@ -120,13 +117,13 @@ export function enable() {
         ctrlKey: true,
         shiftKey: true,
       },
-      () => videoSeeker.seekBackward(),
+      () => slideFinder.findPreviousSlide(),
       true
     )
   );
 }
 
-function getSlideState() {
+async function getSlideState() {
   const slideContainer = selectSingleElement('.slides');
   if (!slideContainer) {
     console.warn('no slide container found! Cannot return slide state');
@@ -143,23 +140,25 @@ function getSlideState() {
     el.getAttribute('data-fragment-index')
   );
   const fragIndices = fragIndicesStr.map(el => +el);
-  const fragCount = Math.max(...fragIndices) + 1;
+  const fragCount = fragIndices.length === 0 ? 1 : Math.max(...fragIndices) + 1;
   const currFrag = slideFragments.find(el =>
     el.className.includes('current-fragment')
   );
   const currFragIdx = currFrag
     ? +currFrag.getAttribute('data-fragment-index')
+    : fragCount === 1
+    ? 0
     : -1;
 
   // for debug purposes
-  console.log(
-    `Currently viewing slide ${currSlideIdx + 1}/${slideCount}`,
-    slideFragments.length > 0
-      ? `(${
-          currFragIdx == -1 ? 0 : currFragIdx + 1
-        } of ${fragCount} fragments visible)`
-      : ''
-  );
+  // console.log(
+  //   `Currently viewing slide ${currSlideIdx + 1}/${slideCount}`,
+  //   slideFragments.length > 0
+  //     ? `(${
+  //         currFragIdx == -1 ? 0 : currFragIdx + 1
+  //       } of ${fragCount} fragments visible)`
+  //     : ''
+  // );
 
   return {
     currSlideIdx,
@@ -173,15 +172,8 @@ async function seekVideo(video, timeDelta) {
   video.currentTime += timeDelta;
 
   return new Promise(resolve => {
-    video.addEventListener(
-      'seeked',
-      () => {
-        console.log('done seeking, current video time: ', video.currentTime);
-        resolve();
-      },
-      {
-        once: true,
-      }
-    );
+    video.addEventListener('seeked', resolve, {
+      once: true,
+    });
   });
 }

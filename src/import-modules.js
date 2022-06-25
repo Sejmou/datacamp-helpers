@@ -22,6 +22,7 @@ async function importFeatureModule(name) {
     );
     slideImageViewerModule.addSlideImageViewFeatures();
 
+    // caution! depends on keyboardShortcutModule
     const videoSlideNavigationModule = await importFeatureModule(
       'video-slide-navigation'
     );
