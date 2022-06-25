@@ -1,5 +1,10 @@
 import { selectElements } from './dom.js';
 
+//workaround for async setTimeout: https://stackoverflow.com/a/33292942/13727176
+export function timeout(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // apparently only working solution to copy to clipboard from Chrome Extension: https://stackoverflow.com/a/22702538 https://stackoverflow.com/a/60349158
 export function copyToClipboard(text) {
   const ta = document.createElement('textarea');

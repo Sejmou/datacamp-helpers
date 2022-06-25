@@ -433,7 +433,7 @@ export function addShortcut(shortcut) {
 
 // contrary to getCurrentPage() from util/other.js, this function does not wait for certain DOM elements to appear
 function getCurrentPageSync() {
-  if (document.querySelector('.slides')) {
+  if (document.querySelector('.video-slides>.slides')) {
     return 'video-iframe'; // inside video iframe
   } else if (
     // only true if video already loaded, while video is still loading, this is not available
