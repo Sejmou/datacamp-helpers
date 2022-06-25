@@ -8,20 +8,13 @@ import { addShortcut, FunctionShortcut } from '../keyboard-shortcuts/index.js';
 
 class SlideFinder {
   #video;
-  #seeking;
   #seekStepSize = 0.5;
 
   constructor(video) {
     this.#video = video;
-    this.#seeking = false;
   }
 
   async findNextSlide() {
-    if (this.#seeking) {
-      console.warn('already seeking, this call will be ignored');
-      return;
-    }
-
     let currentSlideState = await getSlideState();
 
     const currentSlideFullyLoaded =
@@ -67,11 +60,6 @@ class SlideFinder {
   }
 
   async findPreviousSlide() {
-    if (this.#seeking) {
-      console.warn('already seeking, this call will be ignored');
-      return;
-    }
-
     let currentSlideState = await getSlideState();
 
     let atFirstSlide = currentSlideState.currSlideIdx === 0;
