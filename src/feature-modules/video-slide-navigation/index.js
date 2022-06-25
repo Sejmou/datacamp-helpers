@@ -1,4 +1,9 @@
-import { selectElements, selectSingleElement } from '../../util/dom.js';
+import {
+  addStyle,
+  createButton,
+  selectElements,
+  selectSingleElement,
+} from '../../util/dom.js';
 import { addShortcut, FunctionShortcut } from '../keyboard-shortcuts/index.js';
 
 class SlideFinder {
@@ -95,6 +100,32 @@ export function enable() {
   );
 
   const slideFinder = new SlideFinder(selectSingleElement('video'));
+
+  const btnWrapperClass = 'copy-helper-slide-select-btn-wrapper';
+  addStyle(
+    `.${btnWrapperClass} {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 990;
+      transition: 0.25s all;
+      display: flex;
+      gap: 10px;
+    }
+  )`
+  );
+
+  const btnWrapper = document.createElement('div');
+  btnWrapper.className = btnWrapperClass;
+
+  const prevBtn = createButton('Prev. Slide');
+  const nextBtn = createButton('Next Slide');
+  btnWrapper.appendChild(prevBtn);
+  btnWrapper.appendChild(nextBtn);
+  document.body.appendChild(btnWrapper);
+  prevBtn.addEventListener('click', () => slideFinder.findPreviousSlide());
+  nextBtn.addEventListener('click', () => slideFinder.findNextSlide());
 
   // TODO: fix issue with keyboard mapping conflict (K is also used as hotkey for play/pause of video)
   // if last video slide is reached, play/pause of video is still triggered when actually pressing ctrl + shift + k
