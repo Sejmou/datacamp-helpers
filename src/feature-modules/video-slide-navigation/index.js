@@ -8,16 +8,16 @@ export function enable() {
   );
 
   const slideViewer = new SlideViewer(selectSingleElement('video'));
-  addNavigationButtons(slideViewer);
+  addUIControls(slideViewer);
   addNavigationShortcuts(slideViewer);
 }
 
-function addNavigationButtons(slideViewer) {
-  const btnWrapperClass = 'copy-helper-slide-select-btn-wrapper';
+function addUIControls(slideViewer) {
+  const uiWrapperClass = 'copy-helper-slide-select-btn-wrapper';
   addStyle(
-    `.${btnWrapperClass} {
+    `.${uiWrapperClass} {
         position: fixed;
-        top: 10px;
+        top: 5px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 990;
@@ -28,16 +28,76 @@ function addNavigationButtons(slideViewer) {
     )`
   );
 
-  const btnWrapper = document.createElement('div');
-  btnWrapper.className = btnWrapperClass;
+  const uiWrapper = document.createElement('div');
+  uiWrapper.className = uiWrapperClass;
 
+  const { prevBtn, nextBtn } = createNavigationButtons(slideViewer);
+  const { checkbox, checkboxContainer } = createModeSwitchCheckbox(slideViewer);
+  slideViewer.addDisplayModeCheckbox(checkbox); // fckin state synchronization, I'm such an idiot for not using React or anything similar lol
+
+  const uiElements = [prevBtn, nextBtn, checkboxContainer];
+
+  uiElements.forEach(el => uiWrapper.appendChild(el));
+
+  document.body.appendChild(uiWrapper);
+}
+
+function createModeSwitchCheckbox(slideViewer) {
+  const { checkbox, container: checkboxContainer } = createCheckboxAndContainer(
+    'datacamp-helpers-slide-viewer-checkbox',
+    'view slides only?'
+  );
+  checkboxContainer.checked = false; // set to false initially, TODO: save this setting between re-runs of the script
+  checkbox.addEventListener('change', () => {
+    checkbox.checked ? slideViewer.showSlides() : slideViewer.returnToVideo();
+  });
+
+  return { checkbox, checkboxContainer };
+}
+
+function createCheckboxAndContainer(checkboxId, labelText) {
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = false;
+  checkbox.id = checkboxId;
+
+  const label = document.createElement('label');
+  label.htmlFor = checkboxId;
+  label.appendChild(document.createTextNode(labelText));
+  label.style.userSelect = 'none';
+
+  const container = document.createElement('div');
+  const containerId = checkboxId + 'container';
+  container.id = containerId;
+
+  container.appendChild(checkbox);
+  container.appendChild(label);
+
+  addStyle(`
+      #${containerId} {
+        display: flex;
+        justify-content: center;
+        height: 30px;
+        align-items: center;
+        gap: 10px;
+        color: black;
+      }
+    
+      #${containerId}:hover, #${containerId} *:hover {
+        cursor: pointer;
+      }
+    `);
+
+  return { container, checkbox };
+}
+
+function createNavigationButtons(slideViewer) {
   const prevBtn = createButton('Prev. Slide');
   const nextBtn = createButton('Next Slide');
-  btnWrapper.appendChild(prevBtn);
-  btnWrapper.appendChild(nextBtn);
-  document.body.appendChild(btnWrapper);
   prevBtn.addEventListener('click', () => slideViewer.previousSlide());
   nextBtn.addEventListener('click', () => slideViewer.nextSlide());
+
+  return { prevBtn, nextBtn };
 }
 
 function addNavigationShortcuts(slideViewer) {
