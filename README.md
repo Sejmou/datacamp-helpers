@@ -88,13 +88,19 @@ Toggle the course overview modal (open with <kbd>Ctrl</kbd> + <kbd>O</kbd>, clos
 
 ![Modal demo](demo-gifs/modal.gif)
 
-### Slide image viewer
+### Video slide helpers
 
-Skip through the images of every video exercise to inspect them in more detail.
+#### Quickly skip through slides
 
-![Slide image viewer demo](demo-gifs/slide-image-viewer.gif)
+In every demonstration video, you may skip through the slides used in the video, either with the buttons, or using <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>J</kbd> and <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd>. The video is then automatically forwarded to the timestamps where the slides appear:
 
-You may also save them to your PC by right-clicking them and choosing `Save image as...`.
+![Slide skipping demo](demo-gifs/slide-skipping.gif)
+
+#### View slides outside video, copy content
+
+Furthermore, you may choose to view only the slides (without the video). You can then also copy the slide content (text, code, and also images) as you wish!
+
+![Slide data extraction demo](demo-gifs/slide-data-extraction.gif)
 
 ## Installation
 
