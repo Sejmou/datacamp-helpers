@@ -17,16 +17,11 @@ async function importFeatureModule(name) {
   const currentPage = await otherUtilsModule.getCurrentPage();
 
   if (currentPage === 'video-iframe') {
-    const slideImageViewerModule = await importFeatureModule(
-      'slide-image-viewer'
-    );
-    slideImageViewerModule.addSlideImageViewFeatures();
-
     // caution! depends on keyboardShortcutModule
-    const videoSlideNavigationModule = await importFeatureModule(
-      'video-slide-navigation'
+    const videoSlideHelpersModule = await importFeatureModule(
+      'video-slide-helpers'
     );
-    videoSlideNavigationModule.enable();
+    videoSlideHelpersModule.enable();
   } else {
     const codeQuickCopyModule = await importFeatureModule('code-quick-copy');
     codeQuickCopyModule.enableCodeQuickCopy();
